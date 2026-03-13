@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
 import { listLogins, addLogin } from "@/lib/auth";
 
-export async function GET() {
+const ADMIN_COOKIE = "ecostvm_admin";
+
+function requireAdmin(request: NextRequest): NextResponse | null {
+  const adminCookie = request.cookies.get(ADMIN_COOKIE)?.value;
+  if (adminCookie !== "1") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
+
+export async function GET(request: NextRequest) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
     const numbers = await listLogins();
     return NextResponse.json({ numbers });
   } catch (e) {
@@ -20,11 +28,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
     const body = await request.json();
     const raw = body?.number ?? body?.phoneNumber ?? "";
     const number = String(raw).replace(/\D/g, "").trim();
