@@ -102,21 +102,18 @@ export default function AdminDashboardPage() {
     setStatus("Connecting");
     try {
       await fetch("/api/whatsapp/connect", { method: "POST" });
-      for (let i = 0; i < 20; i++) {
-        try {
-          const [statusRes, qrRes] = await Promise.all([
-            fetch("/api/whatsapp/status"),
-            fetch("/api/whatsapp/qr"),
-          ]);
-          const statusData = await statusRes.json();
-          const qrData = await qrRes.json();
-          setStatus(statusData.status ?? "Disconnected");
-          setQrDataUrl(qrData.qr ?? null);
-          if (statusData.status === "Connected" || qrData.qr) break;
-        } catch {
-          // ignore
-        }
-        await new Promise((r) => setTimeout(r, 1500));
+      // Single refresh of status + QR to avoid continuous polling.
+      try {
+        const [statusRes, qrRes] = await Promise.all([
+          fetch("/api/whatsapp/status"),
+          fetch("/api/whatsapp/qr"),
+        ]);
+        const statusData = await statusRes.json();
+        const qrData = await qrRes.json();
+        setStatus(statusData.status ?? "Disconnected");
+        setQrDataUrl(qrData.qr ?? null);
+      } catch {
+        // ignore – user can click Connect again to refresh
       }
     } catch {
       setMessage("Failed to start connection.");

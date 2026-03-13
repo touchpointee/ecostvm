@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDb } from "@/lib/mongo";
 
 const ADMIN_COOKIE = "ecostvm_admin";
-const ADMIN_NUMBER = "1234567890";
+const ADMIN_COLLECTION = "admin_logins";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,11 +10,29 @@ export async function POST(request: NextRequest) {
     const raw = body?.number ?? body?.phoneNumber ?? "";
     const digits = String(raw).replace(/\D/g, "").trim();
 
-    if (digits !== ADMIN_NUMBER) {
+    if (!digits) {
       return NextResponse.json(
-        { error: "Invalid admin number." },
-        { status: 401 }
+        { error: "Enter admin phone number." },
+        { status: 400 }
       );
+    }
+
+    const db = await getDb();
+    const coll = db.collection<{ phoneNumber: string }>(ADMIN_COLLECTION);
+
+    const existingCount = await coll.countDocuments({});
+
+    // If no admin exists yet, first successful login number becomes admin.
+    if (existingCount === 0) {
+      await coll.insertOne({ phoneNumber: digits });
+    } else {
+      const admin = await coll.findOne({ phoneNumber: digits });
+      if (!admin) {
+        return NextResponse.json(
+          { error: "Invalid admin number." },
+          { status: 401 }
+        );
+      }
     }
 
     const res = NextResponse.json({ success: true });
