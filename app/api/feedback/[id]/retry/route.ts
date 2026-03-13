@@ -4,13 +4,13 @@ import { getDb } from "@/lib/mongo";
 import { getJids } from "@/lib/jids";
 import { connect, sendComposing } from "@/lib/whatsapp";
 
-const HEADER = "🚗 *EcoSport TVM - New Feedback*";
+const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
   process.env.PUBLIC_FEEDBACK_URL || "https://example.com/feedback";
 
 function formatMessage(feedbackId: string): string {
   const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
-  return [HEADER, "", `View feedback: ${url}`].join("\n");
+  return [HEADER, "", `View full feedback: ${url}`].join("\n");
 }
 
 export async function POST(
@@ -27,9 +27,7 @@ export async function POST(
     }
 
     const jids = await getJids();
-    const type = feedback.type === "Escalation" ? "Escalation" : "Appreciation";
-    const groupJid =
-      type === "Appreciation" ? jids.appreciationGroupJid : jids.escalationGroupJid;
+    const groupJid = jids.appreciationGroupJid || jids.escalationGroupJid;
 
     if (!groupJid?.trim()) {
       await db.collection("feedback").updateOne(
@@ -37,14 +35,14 @@ export async function POST(
         {
           $set: {
             whatsappSent: false,
-            whatsappError: `No ${type} group JID configured`,
+            whatsappError: "No group JID configured",
           },
           $inc: { attempts: 1 },
         }
       );
       return NextResponse.json({
         success: false,
-        error: `No ${type} group JID configured`,
+        error: "No group JID configured",
       });
     }
 

@@ -1,53 +1,22 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-type FeedbackType = "Appreciation" | "Escalation" | "";
-
-const TYPE_OPTIONS: { value: FeedbackType; label: string }[] = [
-  { value: "", label: "Select feedback type" },
-  { value: "Appreciation", label: "Appreciation" },
-  { value: "Escalation", label: "Escalation" },
-];
-
 export default function FeedbackPage() {
   const [name, setName] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
-  const [type, setType] = useState<FeedbackType>("");
-  const [heading, setHeading] = useState("");
-  const [detailedDescription, setDetailedDescription] = useState("");
+  const [serviceDate, setServiceDate] = useState("");
+  const [advisor, setAdvisor] = useState("");
+  const [pickupDrop, setPickupDrop] = useState("");
+  const [concerns, setConcerns] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [typeOpen, setTypeOpen] = useState(false);
-  const typeDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (typeDropdownRef.current && !typeDropdownRef.current.contains(event.target as Node)) {
-        setTypeOpen(false);
-      }
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setTypeOpen(false);
-    }
-    if (typeOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      document.addEventListener("keydown", handleEscape);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [typeOpen]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!type) {
-      setMessage({ type: "error", text: "Please select a feedback type." });
-      return;
-    }
     setSubmitting(true);
     setMessage(null);
     try {
@@ -56,10 +25,12 @@ export default function FeedbackPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          contactNumber,
           vehicleNumber,
-          type,
-          heading,
-          detailedDescription,
+          serviceDate,
+          advisor,
+          pickupDrop,
+          concerns,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -69,10 +40,12 @@ export default function FeedbackPage() {
       }
       setMessage({ type: "success", text: "Thank you! Your feedback has been submitted." });
       setName("");
+      setContactNumber("");
       setVehicleNumber("");
-      setType("");
-      setHeading("");
-      setDetailedDescription("");
+      setServiceDate("");
+      setAdvisor("");
+      setPickupDrop("");
+      setConcerns("");
     } catch {
       setMessage({ type: "error", text: "Something went wrong. Please try again." });
     } finally {
@@ -90,10 +63,10 @@ export default function FeedbackPage() {
               EcoSport Owner&apos;s Club Trivandrum
             </p>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-black sm:text-3xl">
-              Vehicle Feedback
+              Service Feedback
             </h1>
             <p className="mt-2 text-sm text-black/80">
-              Share your appreciation or escalations with the club. We&apos;re here to listen.
+              Share feedback or concerns about your recent service so the team can assist you.
             </p>
           </div>
 
@@ -113,8 +86,23 @@ export default function FeedbackPage() {
               />
             </div>
             <div>
+              <label htmlFor="contactNumber" className="block text-sm font-medium text-black">
+                Contact no
+              </label>
+              <input
+                id="contactNumber"
+                type="tel"
+                inputMode="tel"
+                value={contactNumber}
+                onChange={(e) => setContactNumber(e.target.value)}
+                placeholder="Your phone number"
+                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                required
+              />
+            </div>
+            <div>
               <label htmlFor="vehicleNumber" className="block text-sm font-medium text-black">
-                Vehicle Number
+                Vehicle number
               </label>
               <input
                 id="vehicleNumber"
@@ -126,84 +114,61 @@ export default function FeedbackPage() {
                 required
               />
             </div>
-            <div ref={typeDropdownRef} className="relative">
-              <label id="type-label" className="block text-sm font-medium text-black">
-                Type
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="serviceDate" className="block text-sm font-medium text-black">
+                  Service date
+                </label>
+                <input
+                  id="serviceDate"
+                  type="date"
+                  value={serviceDate}
+                  onChange={(e) => setServiceDate(e.target.value)}
+                  className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="advisor" className="block text-sm font-medium text-black">
+                  Advisor
+                </label>
+                <input
+                  id="advisor"
+                  type="text"
+                  value={advisor}
+                  onChange={(e) => setAdvisor(e.target.value)}
+                  placeholder="Service advisor name"
+                  className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="pickupDrop" className="block text-sm font-medium text-black">
+                Pickup / drop
               </label>
-              <input type="hidden" name="type" value={type} required />
-              <button
-                type="button"
-                id="type"
-                aria-haspopup="listbox"
-                aria-expanded={typeOpen}
-                aria-labelledby="type-label"
-                aria-required
-                onClick={() => setTypeOpen((o) => !o)}
-                onFocus={() => setTypeOpen(true)}
-                className="mt-1 flex w-full items-center justify-between rounded-lg border-2 border-black bg-white px-3 py-2.5 text-left text-black transition-colors placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-0 hover:border-black/80"
+              <select
+                id="pickupDrop"
+                value={pickupDrop}
+                onChange={(e) => setPickupDrop(e.target.value)}
+                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
               >
-                <span className={type ? "" : "text-black/50"}>
-                  {TYPE_OPTIONS.find((o) => o.value === type)?.label ?? "Select feedback type"}
-                </span>
-                <svg
-                  className={`h-4 w-4 shrink-0 text-black transition-transform ${typeOpen ? "rotate-180" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {typeOpen && (
-                <ul
-                  role="listbox"
-                  aria-labelledby="type-label"
-                  className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border-2 border-black bg-white py-1 shadow-lg"
-                >
-                  {TYPE_OPTIONS.map((opt) => (
-                    <li
-                      key={opt.value || "placeholder"}
-                      role="option"
-                      aria-selected={type === opt.value}
-                      onClick={() => {
-                        setType(opt.value);
-                        setTypeOpen(false);
-                      }}
-                      className={`cursor-pointer px-3 py-2.5 text-sm transition-colors ${
-                        type === opt.value
-                          ? "bg-yellow-400 font-medium text-black"
-                          : "text-black hover:bg-yellow-100"
-                      } ${!opt.value ? "text-black/50" : ""}`}
-                    >
-                      {opt.label}
-                    </li>
-                  ))}
-                </ul>
-              )}
+                <option value="">Select option</option>
+                <option value="Pickup">Pickup</option>
+                <option value="Drop">Drop</option>
+                <option value="Pickup & Drop">Pickup & Drop</option>
+                <option value="None">None</option>
+              </select>
             </div>
             <div>
-              <label htmlFor="heading" className="block text-sm font-medium text-black">
-                Heading
-              </label>
-              <input
-                id="heading"
-                type="text"
-                value={heading}
-                onChange={(e) => setHeading(e.target.value)}
-                placeholder="Short summary of your feedback"
-                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="detailedDescription" className="block text-sm font-medium text-black">
-                Detailed Description
+              <label htmlFor="concerns" className="block text-sm font-medium text-black">
+                Service feedback / concerns
               </label>
               <textarea
-                id="detailedDescription"
+                id="concerns"
                 rows={4}
-                value={detailedDescription}
-                onChange={(e) => setDetailedDescription(e.target.value)}
-                placeholder="Provide details about your appreciation or escalation..."
+                value={concerns}
+                onChange={(e) => setConcerns(e.target.value)}
+                placeholder="Describe your service experience, issues, or concerns..."
                 className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 required
               />

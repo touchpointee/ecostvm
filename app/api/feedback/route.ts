@@ -2,14 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { getJids } from "@/lib/jids";
 import { connect, sendComposing } from "@/lib/whatsapp";
 import { getDb } from "@/lib/mongo";
+import { startRetryScheduler } from "@/lib/retryScheduler";
 
-const HEADER = "🚗 *EcoSport TVM - New Feedback*";
+const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
   process.env.PUBLIC_FEEDBACK_URL || "https://example.com/feedback";
 
-function formatMessage(feedbackId: string): string {
+function formatMessage(
+  feedbackId: string,
+  details: {
+    name?: string;
+    contactNumber?: string;
+    vehicleNumber?: string;
+    serviceDate?: string;
+    advisor?: string;
+    pickupDrop?: string;
+  }
+): string {
   const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
-  const lines = [HEADER, "", `View feedback: ${url}`];
+  const lines = [
+    HEADER,
+    "",
+    details.name ? `Name: ${details.name}` : undefined,
+    details.contactNumber ? `Contact: ${details.contactNumber}` : undefined,
+    details.vehicleNumber ? `Vehicle: ${details.vehicleNumber}` : undefined,
+    details.serviceDate ? `Service date: ${details.serviceDate}` : undefined,
+    details.advisor ? `Advisor: ${details.advisor}` : undefined,
+    details.pickupDrop ? `Pickup / drop: ${details.pickupDrop}` : undefined,
+    "",
+    `View full feedback: ${url}`,
+  ].filter((line) => line !== undefined) as string[];
   return lines.join("\n");
 }
 
@@ -18,18 +40,29 @@ function randomDelay(minMs: number, maxMs: number): Promise<void> {
   return new Promise((r) => setTimeout(r, delay));
 }
 
+// Ensure the background retry scheduler is running in this server process.
+startRetryScheduler();
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, vehicleNumber, type, heading, detailedDescription } = body;
-    if (!name || !vehicleNumber || !type || !detailedDescription) {
+    const {
+      name,
+      contactNumber,
+      vehicleNumber,
+      serviceDate,
+      advisor,
+      pickupDrop,
+      concerns,
+    } = body;
+    if (!name || !vehicleNumber || !serviceDate || !concerns) {
       return NextResponse.json(
-        { error: "Missing required fields: name, vehicleNumber, type, detailedDescription" },
+        {
+          error:
+            "Missing required fields: name, vehicleNumber, serviceDate, concerns (service feedback).",
+        },
         { status: 400 }
       );
-    }
-    if (type !== "Appreciation" && type !== "Escalation") {
-      return NextResponse.json({ error: "Invalid type. Use Appreciation or Escalation." }, { status: 400 });
     }
 
     // 1. Persist feedback in MongoDB
@@ -37,10 +70,12 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const insertResult = await db.collection("feedback").insertOne({
       name: String(name).trim(),
+      contactNumber: contactNumber != null ? String(contactNumber).trim() : undefined,
       vehicleNumber: String(vehicleNumber).trim(),
-      type: String(type),
-      heading: heading != null ? String(heading) : undefined,
-      detailedDescription: String(detailedDescription).trim(),
+      serviceDate: String(serviceDate),
+      advisor: advisor != null ? String(advisor).trim() : undefined,
+      pickupDrop: pickupDrop != null ? String(pickupDrop) : undefined,
+      concerns: String(concerns).trim(),
       createdAt: now,
       whatsappSent: false,
       whatsappError: null,
@@ -49,12 +84,20 @@ export async function POST(request: NextRequest) {
 
     // 2. Route to appropriate WhatsApp group (best-effort only)
     const jids = await getJids();
-    const groupJid = type === "Appreciation" ? jids.appreciationGroupJid : jids.escalationGroupJid;
+    // Use Appreciation group JID for service feedback by default
+    const groupJid = jids.appreciationGroupJid || jids.escalationGroupJid;
     let whatsappSent = false;
     let whatsappError: string | null = null;
 
     if (groupJid?.trim()) {
-      const text = formatMessage(String(insertResult.insertedId));
+      const text = formatMessage(String(insertResult.insertedId), {
+        name,
+        contactNumber,
+        vehicleNumber,
+        serviceDate,
+        advisor,
+        pickupDrop,
+      });
 
       try {
         const socket = await connect();
@@ -68,7 +111,8 @@ export async function POST(request: NextRequest) {
           err instanceof Error ? err.message : "Failed to send WhatsApp notification";
       }
     } else {
-      whatsappError = `No ${type} group JID configured. Please set it in the Admin portal.`;
+      whatsappError =
+        "No group JID configured. Please set at least one group JID in the Admin portal.";
     }
 
     await db.collection("feedback").updateOne(
