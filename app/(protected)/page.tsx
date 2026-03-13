@@ -12,11 +12,16 @@ export default function FeedbackPage() {
   const [advisor, setAdvisor] = useState("");
   const [pickupDrop, setPickupDrop] = useState("");
   const [concerns, setConcerns] = useState("");
+  const [type, setType] = useState<"" | "Appreciation" | "Escalation">("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!type) {
+      setMessage({ type: "error", text: "Please select feedback group (Appreciation / Escalation)." });
+      return;
+    }
     setSubmitting(true);
     setMessage(null);
     try {
@@ -31,6 +36,7 @@ export default function FeedbackPage() {
           advisor,
           pickupDrop,
           concerns,
+          type,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -46,6 +52,7 @@ export default function FeedbackPage() {
       setAdvisor("");
       setPickupDrop("");
       setConcerns("");
+      setType("");
     } catch {
       setMessage({ type: "error", text: "Something went wrong. Please try again." });
     } finally {
@@ -143,6 +150,22 @@ export default function FeedbackPage() {
               </div>
             </div>
             <div>
+              <label htmlFor="type" className="block text-sm font-medium text-black">
+                Feedback group
+              </label>
+              <select
+                id="type"
+                value={type}
+                onChange={(e) => setType(e.target.value as "Appreciation" | "Escalation" | "")}
+                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                required
+              >
+                <option value="">Select group</option>
+                <option value="Appreciation">Appreciation group</option>
+                <option value="Escalation">Escalation group</option>
+              </select>
+            </div>
+            <div>
               <label htmlFor="pickupDrop" className="block text-sm font-medium text-black">
                 Pickup / drop
               </label>
@@ -156,7 +179,7 @@ export default function FeedbackPage() {
                 <option value="Pickup">Pickup</option>
                 <option value="Drop">Drop</option>
                 <option value="Pickup & Drop">Pickup & Drop</option>
-                <option value="None">None</option>
+                <option value="Drive in">Drive in</option>
               </select>
             </div>
             <div>

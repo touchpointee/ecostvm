@@ -37,7 +37,9 @@ async function retryFailedOnce(): Promise<void> {
     for (const doc of items) {
       const _id = doc._id as ObjectId;
       const id = _id.toString();
-      const groupJid = jids.appreciationGroupJid || jids.escalationGroupJid;
+      const type = doc.type === "Escalation" ? "Escalation" : "Appreciation";
+      const groupJid =
+        type === "Escalation" ? jids.escalationGroupJid : jids.appreciationGroupJid || jids.escalationGroupJid;
 
       let whatsappSent = false;
       let whatsappError: string | null = null;

@@ -27,7 +27,9 @@ export async function POST(
     }
 
     const jids = await getJids();
-    const groupJid = jids.appreciationGroupJid || jids.escalationGroupJid;
+    const type = feedback.type === "Escalation" ? "Escalation" : "Appreciation";
+    const groupJid =
+      type === "Escalation" ? jids.escalationGroupJid : jids.appreciationGroupJid || jids.escalationGroupJid;
 
     if (!groupJid?.trim()) {
       await db.collection("feedback").updateOne(

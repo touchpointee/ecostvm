@@ -54,13 +54,20 @@ export async function POST(request: NextRequest) {
       advisor,
       pickupDrop,
       concerns,
+      type,
     } = body;
-    if (!name || !vehicleNumber || !serviceDate || !concerns) {
+    if (!name || !vehicleNumber || !serviceDate || !concerns || !type) {
       return NextResponse.json(
         {
           error:
-            "Missing required fields: name, vehicleNumber, serviceDate, concerns (service feedback).",
+            "Missing required fields: name, vehicleNumber, serviceDate, concerns, type (Appreciation/Escalation).",
         },
+        { status: 400 }
+      );
+    }
+    if (type !== "Appreciation" && type !== "Escalation") {
+      return NextResponse.json(
+        { error: "Invalid type. Use Appreciation or Escalation." },
         { status: 400 }
       );
     }
@@ -76,6 +83,7 @@ export async function POST(request: NextRequest) {
       advisor: advisor != null ? String(advisor).trim() : undefined,
       pickupDrop: pickupDrop != null ? String(pickupDrop) : undefined,
       concerns: String(concerns).trim(),
+      type: String(type),
       createdAt: now,
       whatsappSent: false,
       whatsappError: null,
@@ -84,8 +92,8 @@ export async function POST(request: NextRequest) {
 
     // 2. Route to appropriate WhatsApp group (best-effort only)
     const jids = await getJids();
-    // Use Appreciation group JID for service feedback by default
-    const groupJid = jids.appreciationGroupJid || jids.escalationGroupJid;
+    const groupJid =
+      type === "Escalation" ? jids.escalationGroupJid : jids.appreciationGroupJid || jids.escalationGroupJid;
     let whatsappSent = false;
     let whatsappError: string | null = null;
 
