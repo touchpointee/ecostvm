@@ -43,7 +43,12 @@ export default function LoginPage() {
         setError(data.error || "Login failed.");
         return;
       }
-      router.push("/");
+      // Use full reload so middleware and cookies are in sync.
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      } else {
+        router.push("/");
+      }
     } catch {
       setError("Something went wrong.");
     } finally {
