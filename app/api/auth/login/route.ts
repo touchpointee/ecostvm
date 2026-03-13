@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       const res = NextResponse.json({ success: true });
       res.cookies.set(COOKIE_NAME, cookie, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
         maxAge: MAX_AGE,
         path: "/",
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const res = NextResponse.json({ success: true });
     res.cookies.set(COOKIE_NAME, cookie, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       sameSite: "lax",
       maxAge: MAX_AGE,
       path: "/",

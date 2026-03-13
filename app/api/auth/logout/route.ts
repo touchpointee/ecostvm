@@ -8,7 +8,7 @@ export async function POST() {
   // Clear user session cookie
   res.cookies.set(COOKIE_NAME, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: false,
     sameSite: "lax",
     maxAge: 0,
     path: "/",
@@ -16,7 +16,7 @@ export async function POST() {
   // Clear admin session cookie
   res.cookies.set(ADMIN_COOKIE, "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: false,
     sameSite: "lax",
     maxAge: 0,
     path: "/",
