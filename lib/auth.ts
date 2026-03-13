@@ -101,8 +101,14 @@ export async function removeLogin(phoneNumber: string): Promise<{ ok: boolean; e
 
 export async function listLogins(): Promise<string[]> {
   const db = await getDb();
-  const docs = await db.collection("logins").find({}).sort({ phoneNumber: 1 }).toArray();
-  return (docs as { phoneNumber: string }[]).map((d) => d.phoneNumber);
+  const docs = await db
+    .collection<{ phoneNumber?: unknown }>("logins")
+    .find({})
+    .sort({ phoneNumber: 1 })
+    .toArray();
+  return docs
+    .map((d) => (typeof d.phoneNumber === "string" ? d.phoneNumber : ""))
+    .filter((v) => v.length > 0);
 }
 
 export { COOKIE_NAME, MAX_AGE };

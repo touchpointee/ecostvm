@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -10,20 +10,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
 
   useEffect(() => {
     fetch("/api/auth/session")
       .then((res) => {
         if (res.ok) {
-          router.replace(next);
+          router.replace("/");
           return;
         }
         setChecking(false);
       })
       .catch(() => setChecking(false));
-  }, [router, next]);
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,8 +43,7 @@ export default function LoginPage() {
         setError(data.error || "Login failed.");
         return;
       }
-      router.push(next);
-      router.refresh();
+      router.push("/");
     } catch {
       setError("Something went wrong.");
     } finally {
