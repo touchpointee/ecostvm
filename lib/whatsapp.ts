@@ -129,6 +129,9 @@ async function createClient(): Promise<Client> {
     G.readyResolve = resolve;
   });
 
+  // Track whether we ever reached "ready" so we can detect a bad session restore
+  let wasReady = false;
+
   wclient.on("qr", (qr) => {
     G.currentQR = qr;
     G.connectionStatus = "connecting";
@@ -137,6 +140,7 @@ async function createClient(): Promise<Client> {
   });
 
   wclient.on("ready", () => {
+    wasReady = true;
     G.connectionStatus = "connected";
     G.currentQR = null;
     G.lastInitError = null;
@@ -151,20 +155,31 @@ async function createClient(): Promise<Client> {
     console.log("[whatsapp] session saved to MongoDB");
   });
 
-  wclient.on("disconnected", (reason) => {
+  wclient.on("disconnected", async (reason) => {
     console.log(`[whatsapp] disconnected: ${reason}`);
     G.connectionStatus = "disconnected";
     G.currentQR = null;
     G.connectPromise = null;
     G.readyPromise = null;
     G.readyResolve = null;
-    if (reason !== "LOGOUT") {
-      setTimeout(() => {
-        connect().catch((e) => console.error("[whatsapp] auto-reconnect failed", e));
-      }, 5000);
-    } else {
+
+    if (reason === "LOGOUT") {
       G.client = null;
+      return;
     }
+
+    // If we disconnected before ever reaching "ready", the restored session is
+    // invalid (e.g. cross-OS Chrome profile mismatch). Delete it so the next
+    // connect starts fresh and shows a QR instead of looping forever.
+    if (!wasReady) {
+      console.warn("[whatsapp] disconnected before ready – purging possibly corrupt session from MongoDB");
+      G.lastInitError = `Session was invalid (reason: ${reason}) – purged from DB, reconnecting with fresh QR…`;
+      try { await store.delete({ session: SESSION_ID }); } catch {}
+    }
+
+    setTimeout(() => {
+      connect().catch((e) => console.error("[whatsapp] auto-reconnect failed", e));
+    }, 5000);
   });
 
   wclient.initialize().catch(async (e) => {
