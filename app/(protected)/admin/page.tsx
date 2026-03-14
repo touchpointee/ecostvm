@@ -108,6 +108,28 @@ export default function AdminDashboardPage() {
     return () => clearTimeout(t);
   }, [connectClickedAt]);
 
+  // Keep refreshing QR while Connecting (Baileys rotates QR every ~20–60s; show the latest)
+  useEffect(() => {
+    if (status !== "Connecting") return;
+    const intervalMs = 8000;
+    const t = setInterval(async () => {
+      try {
+        const [statusRes, qrRes] = await Promise.all([
+          fetch("/api/whatsapp/status"),
+          fetch("/api/whatsapp/qr"),
+        ]);
+        const statusData = await statusRes.json();
+        const qrData = await qrRes.json();
+        const s = statusData.status ?? "Disconnected";
+        setStatus(s);
+        if (qrData.qr) setQrDataUrl(qrData.qr);
+      } catch {
+        // ignore
+      }
+    }, intervalMs);
+    return () => clearInterval(t);
+  }, [status]);
+
   async function handleConnect() {
     setMessage(null);
     setQrDataUrl(null);
@@ -142,7 +164,7 @@ export default function AdminDashboardPage() {
             setQrDataUrl(qrData.qr);
             setMessage(null);
             setConnectClickedAt(null); // allow Remove once QR is showing
-            break;
+            // Don't break: keep polling so we get status updates (Connected) and QR refreshes
           }
           if (qrData.message) {
             lastQrMessage = qrData.message;
@@ -310,7 +332,7 @@ export default function AdminDashboardPage() {
             {status !== "Connected" && (
               <div className="mt-4">
                 <p className="mb-1 text-sm text-black">Scan QR with WhatsApp (Linked Devices):</p>
-                <p className="mb-2 text-xs text-black/60">QR can take 10–15 seconds. Wait for it before clicking Remove all connections.</p>
+                <p className="mb-2 text-xs text-black/60">QR can take 10–15 seconds and refreshes automatically. Wait for it before clicking Remove all connections.</p>
                 <div className="inline-block rounded-lg border-2 border-black bg-white p-4">
                   {qrDataUrl ? (
                     <img src={qrDataUrl} alt="WhatsApp QR" className="h-64 w-64" />
