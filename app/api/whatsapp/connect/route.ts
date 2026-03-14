@@ -3,7 +3,9 @@ import { connect } from "@/lib/whatsapp";
 
 export async function POST() {
   try {
+    console.log("[api/whatsapp/connect] POST received");
     await connect();
+    console.log("[api/whatsapp/connect] connect() done");
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error("[api/whatsapp/connect]", e);

@@ -67,6 +67,7 @@ async function createSocket(): Promise<WASocket> {
     const { connection, lastDisconnect, qr } = update;
     if (qr) {
       currentQR = qr;
+      console.log("[whatsapp] QR received");
     }
     if (connection === "connecting" || connection === "open") {
       connectionStatus = connection === "open" ? "connected" : "connecting";
@@ -98,10 +99,20 @@ export async function connect(): Promise<WASocket> {
   if (connectPromise) {
     return connectPromise;
   }
+  console.log("[whatsapp] connect() started");
   connectionStatus = "connecting";
+  currentQR = null;
   connectPromise = createSocket();
-  sock = await connectPromise;
-  return sock;
+  try {
+    sock = await connectPromise;
+    console.log("[whatsapp] socket created, waiting for QR or open");
+    return sock;
+  } catch (e) {
+    connectPromise = null;
+    connectionStatus = "disconnected";
+    console.error("[whatsapp] connect failed", e);
+    throw e;
+  }
 }
 
 export async function sendToGroup(groupJid: string, text: string): Promise<void> {

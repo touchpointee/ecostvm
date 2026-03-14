@@ -31,6 +31,8 @@ export default function AdminDashboardPage() {
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [removingConnections, setRemovingConnections] = useState(false);
+  const [groupsModalOpen, setGroupsModalOpen] = useState(false);
+  const [qrHint, setQrHint] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -101,6 +103,7 @@ export default function AdminDashboardPage() {
   async function handleConnect() {
     setMessage(null);
     setQrDataUrl(null);
+    setQrHint(null);
     setStatus("Connecting");
     try {
       const connectRes = await fetch("/api/whatsapp/connect", { method: "POST" });
@@ -110,11 +113,12 @@ export default function AdminDashboardPage() {
         setStatus("Disconnected");
         return;
       }
-      // Poll for status + QR (Baileys emits QR async; serverless may never share state).
-      const maxAttempts = 20;
+      // Poll for status + QR. Baileys emits QR async; give it time (first delay 2s).
+      const maxAttempts = 24;
       const intervalMs = 1500;
+      let lastQrMessage = "";
       for (let i = 0; i < maxAttempts; i++) {
-        await new Promise((r) => setTimeout(r, i === 0 ? 800 : intervalMs));
+        await new Promise((r) => setTimeout(r, i === 0 ? 2000 : intervalMs));
         try {
           const [statusRes, qrRes] = await Promise.all([
             fetch("/api/whatsapp/status"),
@@ -124,10 +128,15 @@ export default function AdminDashboardPage() {
           const qrData = await qrRes.json();
           const s = statusData.status ?? "Disconnected";
           setStatus(s);
-          if (qrData.qr) setQrDataUrl(qrData.qr);
+          if (qrData.qr) {
+            setQrDataUrl(qrData.qr);
+            setMessage(null);
+            break;
+          }
+          if (qrData.message) lastQrMessage = qrData.message;
           if (s === "Connected") break;
-          if (s === "Disconnected" && i > 2) {
-            setMessage("Still disconnected. If you're on serverless (e.g. Vercel), deploy to a long‑running server (VPS, Railway, Render) so WhatsApp can stay connected.");
+          if (s === "Disconnected" && i >= 3) {
+            setMessage(lastQrMessage || "No QR yet. Try: 1) Remove all connections, 2) Connect WhatsApp again. In Coolify set replicas to 1.");
             break;
           }
         } catch {
@@ -401,27 +410,68 @@ export default function AdminDashboardPage() {
           </section>
 
           <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">
-            <h2 className="text-lg font-semibold text-black">Fetch groups</h2>
-            <p className="mt-1 text-sm text-black/80">Load WhatsApp groups. IDs in server console and below.</p>
+            <h2 className="text-lg font-semibold text-black">Groups</h2>
+            <p className="mt-1 text-sm text-black/80">Load WhatsApp groups and copy JIDs for Appreciation / Escalation above.</p>
             <button
               type="button"
-              onClick={handleFetchGroups}
-              disabled={fetchingGroups || status !== "Connected"}
-              className="mt-4 rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-70"
+              onClick={() => setGroupsModalOpen(true)}
+              className="mt-4 rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
             >
-              {fetchingGroups ? "Fetching…" : "Fetch Groups"}
+              Fetch groups
             </button>
-            {groupsList.length > 0 && (
-              <ul className="mt-4 max-h-60 space-y-1 overflow-y-auto rounded border-2 border-black bg-white p-3 text-sm">
-                {groupsList.map((g) => (
-                  <li key={g.id} className="font-mono text-black">
-                    <span className="text-black/70">{g.id}</span>
-                    {g.subject != null && g.subject !== "" && <span className="ml-2 text-black">— {g.subject}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
           </section>
+
+          {groupsModalOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+              onClick={() => setGroupsModalOpen(false)}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="groups-modal-title"
+            >
+              <div
+                className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-2xl border-2 border-black bg-white shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-6 py-4">
+                  <h2 id="groups-modal-title" className="text-lg font-semibold text-black">
+                    Fetch groups
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => setGroupsModalOpen(false)}
+                    className="rounded-lg p-1 text-black hover:bg-black hover:text-white"
+                    aria-label="Close"
+                  >
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="max-h-[60vh] overflow-y-auto p-6">
+                  <p className="mb-4 text-sm text-black/80">Load WhatsApp groups. IDs appear below and in server console.</p>
+                  <button
+                    type="button"
+                    onClick={handleFetchGroups}
+                    disabled={fetchingGroups || status !== "Connected"}
+                    className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-70"
+                  >
+                    {fetchingGroups ? "Fetching…" : "Fetch Groups"}
+                  </button>
+                  {groupsList.length > 0 && (
+                    <ul className="mt-4 max-h-52 space-y-1 overflow-y-auto rounded border-2 border-black bg-white p-3 text-sm">
+                      {groupsList.map((g) => (
+                        <li key={g.id} className="font-mono text-black">
+                          <span className="text-black/70">{g.id}</span>
+                          {g.subject != null && g.subject !== "" && <span className="ml-2 text-black">— {g.subject}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {message && (
             <p
