@@ -33,6 +33,7 @@ export default function AdminDashboardPage() {
   const [removingConnections, setRemovingConnections] = useState(false);
   const [groupsModalOpen, setGroupsModalOpen] = useState(false);
   const [qrHint, setQrHint] = useState<string | null>(null);
+  const [connectClickedAt, setConnectClickedAt] = useState<number | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -100,17 +101,26 @@ export default function AdminDashboardPage() {
     fetchFeedbacks();
   }, [fetchStatus, fetchJids, fetchQR, fetchFeedbacks]);
 
+  // Re-enable "Remove all connections" 15s after Connect (QR can take ~10s to appear)
+  useEffect(() => {
+    if (connectClickedAt == null) return;
+    const t = setTimeout(() => setConnectClickedAt(null), 15000);
+    return () => clearTimeout(t);
+  }, [connectClickedAt]);
+
   async function handleConnect() {
     setMessage(null);
     setQrDataUrl(null);
     setQrHint(null);
     setStatus("Connecting");
+    setConnectClickedAt(Date.now());
     try {
       const connectRes = await fetch("/api/whatsapp/connect", { method: "POST" });
       if (!connectRes.ok) {
         const err = await connectRes.json().catch(() => ({}));
         setMessage(err.error || "Failed to start connection.");
         setStatus("Disconnected");
+        setConnectClickedAt(null);
         return;
       }
       // Poll for status + QR. Baileys emits QR async; give it time (first delay 2s).
@@ -131,15 +141,20 @@ export default function AdminDashboardPage() {
           if (qrData.qr) {
             setQrDataUrl(qrData.qr);
             setMessage(null);
+            setConnectClickedAt(null); // allow Remove once QR is showing
             break;
           }
           if (qrData.message) {
             lastQrMessage = qrData.message;
             setQrHint(qrData.message);
           }
-          if (s === "Connected") break;
-          if (s === "Disconnected" && i >= 3) {
-            setMessage(lastQrMessage || "No QR yet. Try: 1) Remove all connections, 2) Connect WhatsApp again. In Coolify set replicas to 1.");
+          if (s === "Connected") {
+            setConnectClickedAt(null);
+            break;
+          }
+          // QR can take ~10–15s; don't give up too early (i>=10 ≈ 15s)
+          if (s === "Disconnected" && i >= 10) {
+            setMessage(lastQrMessage || "No QR after 15s. Try: 1) Remove all connections, 2) Connect WhatsApp again. Wait for QR before clicking Remove.");
             break;
           }
         } catch {
@@ -149,6 +164,7 @@ export default function AdminDashboardPage() {
     } catch {
       setMessage("Failed to start connection.");
       setStatus("Disconnected");
+      setConnectClickedAt(null);
     }
   }
 
@@ -273,10 +289,10 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={handleRemoveAllConnections}
-                    disabled={removingConnections}
+                    disabled={removingConnections || (connectClickedAt != null && Date.now() - connectClickedAt < 15000)}
                     className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-70"
                   >
-                    {removingConnections ? "Removing…" : "Remove all connections"}
+                    {removingConnections ? "Removing…" : connectClickedAt != null && Date.now() - connectClickedAt < 15000 ? "Remove all connections (wait for QR…)" : "Remove all connections"}
                   </button>
                 </>
               )}
@@ -293,7 +309,8 @@ export default function AdminDashboardPage() {
             </div>
             {status !== "Connected" && (
               <div className="mt-4">
-                <p className="mb-2 text-sm text-black">Scan QR with WhatsApp (Linked Devices):</p>
+                <p className="mb-1 text-sm text-black">Scan QR with WhatsApp (Linked Devices):</p>
+                <p className="mb-2 text-xs text-black/60">QR can take 10–15 seconds. Wait for it before clicking Remove all connections.</p>
                 <div className="inline-block rounded-lg border-2 border-black bg-white p-4">
                   {qrDataUrl ? (
                     <img src={qrDataUrl} alt="WhatsApp QR" className="h-64 w-64" />
