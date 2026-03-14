@@ -1,0 +1,14 @@
+# Install Chromium for whatsapp-web.js (Puppeteer) on Coolify/Docker
+[phases.setup]
+aptPkgs = [
+  "chromium-browser",
+  "libnss3",
+  "libatk-bridge2.0-0",
+  "libdrm2",
+  "libgbm1",
+  "libasound2"
+]
+
+[variables]
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium-browser"

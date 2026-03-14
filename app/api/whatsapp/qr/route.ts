@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { getCurrentQR, getConnectionStatus } from "@/lib/whatsapp";
-import { getStoredQR } from "@/lib/whatsappQRStore";
 import QRCode from "qrcode";
 
 export async function GET() {
   const connectionStatus = getConnectionStatus();
-  const qr = getCurrentQR() ?? (await getStoredQR());
+  const qr = getCurrentQR();
   if (!qr) {
     const message =
       connectionStatus === "connecting"
-        ? "QR not ready yet. Keep waiting or refresh."
-        : "No QR code. Click Connect WhatsApp first; if you already did, click Remove all connections then Connect again.";
+        ? "QR not ready yet – keep waiting, it refreshes automatically."
+        : "No QR. Click Connect WhatsApp first.";
     return NextResponse.json({ qr: null, message, connectionStatus });
   }
   try {

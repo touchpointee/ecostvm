@@ -1,23 +1,17 @@
-import makeWASocket, {
-  useMultiFileAuthState,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  Browsers,
-  type WASocket,
-  type BaileysEventMap,
-} from "@whiskeysockets/baileys";
+import { Client, LocalAuth } from "whatsapp-web.js";
 import path from "path";
 import { rm } from "fs/promises";
-import { saveStoredQR } from "./whatsappQRStore";
 
-const AUTH_DIR = path.join(process.cwd(), ".data", "auth_info_baileys");
+const AUTH_DIR = path.join(process.cwd(), ".data");
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "close";
 
-let sock: WASocket | null = null;
+let client: Client | null = null;
 let currentQR: string | null = null;
 let connectionStatus: ConnectionStatus = "disconnected";
-let connectPromise: Promise<WASocket> | null = null;
+let connectPromise: Promise<Client> | null = null;
+let readyPromise: Promise<Client> | null = null;
+let readyResolve: ((c: Client) => void) | null = null;
 
 export function getConnectionStatus(): ConnectionStatus {
   return connectionStatus;
@@ -27,24 +21,25 @@ export function getCurrentQR(): string | null {
   return currentQR;
 }
 
-export function getSocket(): WASocket | null {
-  return sock;
+export function getSocket(): Client | null {
+  return client;
 }
 
 export async function logout(): Promise<void> {
   try {
-    if (sock) {
-      await sock.logout();
+    if (client) {
+      await client.logout();
+      client.destroy();
     }
   } catch (e) {
     console.error("[whatsapp] logout failed", e);
   } finally {
-    sock = null;
+    client = null;
     connectPromise = null;
+    readyPromise = null;
+    readyResolve = null;
     connectionStatus = "disconnected";
     currentQR = null;
-    void saveStoredQR(null);
-    // remove stored auth so that the next connect requires a fresh QR
     try {
       await rm(AUTH_DIR, { recursive: true, force: true });
     } catch (e) {
@@ -53,65 +48,76 @@ export async function logout(): Promise<void> {
   }
 }
 
-async function createSocket(): Promise<WASocket> {
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+async function createClient(): Promise<Client> {
+  const puppeteerConfig: { executablePath?: string; args?: string[] } = {};
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    puppeteerConfig.args = ["--no-sandbox", "--disable-setuid-sandbox"];
+  }
 
-  const { version } = await fetchLatestBaileysVersion();
-
-  const socket = makeWASocket({
-    auth: state,
-    printQRInTerminal: false,
-    version,
-    browser: Browsers.ubuntu("Chrome"),
+  const wclient = new Client({
+    authStrategy: new LocalAuth({ dataPath: AUTH_DIR }),
+    puppeteer: puppeteerConfig,
   });
 
-  socket.ev.on("connection.update", (update: Partial<BaileysEventMap["connection.update"]>) => {
-    const { connection, lastDisconnect, qr } = update;
-    if (qr) {
-      currentQR = qr;
-      console.log("[whatsapp] QR received");
-      void saveStoredQR(qr);
-    }
-    if (connection === "connecting" || connection === "open") {
-      connectionStatus = connection === "open" ? "connected" : "connecting";
-      if (connection === "open") {
-        currentQR = null;
-        void saveStoredQR(null);
-      }
-    }
-    if (connection === "close") {
-      connectionStatus = "disconnected";
-      currentQR = null;
-      void saveStoredQR(null);
-      const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
-      if (statusCode !== DisconnectReason.loggedOut) {
-        sock = null;
-        connectPromise = null;
-        setTimeout(() => connect(), 3000);
-      }
+  readyPromise = new Promise<Client>((resolve) => {
+    readyResolve = resolve;
+  });
+
+  wclient.on("qr", (qr) => {
+    currentQR = qr;
+    connectionStatus = "connecting";
+    console.log("[whatsapp] QR received");
+  });
+
+  wclient.on("ready", () => {
+    connectionStatus = "connected";
+    currentQR = null;
+    console.log("[whatsapp] client ready");
+    if (readyResolve) {
+      readyResolve(wclient);
+      readyResolve = null;
     }
   });
 
-  socket.ev.on("creds.update", saveCreds);
+  wclient.on("disconnected", (reason) => {
+    connectionStatus = "disconnected";
+    currentQR = null;
+    client = null;
+    connectPromise = null;
+    readyPromise = null;
+    readyResolve = null;
+    if (reason !== "LOGOUT") {
+      setTimeout(() => connect(), 3000);
+    }
+  });
 
-  return socket;
+  wclient.initialize().catch((e) => {
+    console.error("[whatsapp] initialize failed", e);
+    connectionStatus = "disconnected";
+    connectPromise = null;
+  });
+
+  return wclient;
 }
 
-export async function connect(): Promise<WASocket> {
-  if (sock) {
-    return sock;
-  }
-  if (connectPromise) {
-    return connectPromise;
-  }
+async function getClientWhenReady(): Promise<Client> {
+  if (connectionStatus === "connected" && client) return client;
+  if (readyPromise) return readyPromise;
+  throw new Error("WhatsApp not connected");
+}
+
+export async function connect(): Promise<Client> {
+  if (client && connectionStatus === "connected") return client;
+  if (connectPromise) return connectPromise;
   console.log("[whatsapp] connect() started");
   connectionStatus = "connecting";
   currentQR = null;
-  connectPromise = createSocket();
+  connectPromise = createClient();
   try {
-    sock = await connectPromise;
-    console.log("[whatsapp] socket created, waiting for QR or open");
-    return sock;
+    client = await connectPromise;
+    console.log("[whatsapp] client created, waiting for QR or ready");
+    return client;
   } catch (e) {
     connectPromise = null;
     connectionStatus = "disconnected";
@@ -132,34 +138,32 @@ function isConnectionError(e: unknown): boolean {
   );
 }
 
-/** Clears the socket so the next connect() creates a fresh connection. Call when send fails due to connection closed. */
 export function clearSocketIfClosed(): void {
-  sock = null;
+  client = null;
   connectPromise = null;
+  readyPromise = null;
+  readyResolve = null;
   connectionStatus = "disconnected";
   currentQR = null;
-  void saveStoredQR(null);
 }
 
 export async function sendToGroup(groupJid: string, text: string): Promise<void> {
-  const socket = sock ?? (await connect());
-  await socket.sendMessage(groupJid, { text });
+  const c = await getClientWhenReady();
+  await c.sendMessage(groupJid, text);
 }
 
-/**
- * Send message to group; on "connection closed" (or similar) clears socket and retries once with a fresh connection.
- * Use this for feedback/retry so auto-send is resilient to temporary disconnects.
- */
 export async function sendToGroupWithRetry(groupJid: string, text: string): Promise<void> {
-  let socket = sock ?? (await connect());
+  let c: Client;
   try {
-    await socket.sendMessage(groupJid, { text });
+    c = await getClientWhenReady();
+    await c.sendMessage(groupJid, text);
   } catch (e) {
     if (isConnectionError(e)) {
-      console.warn("[whatsapp] send failed (connection error), clearing socket and retrying once:", e);
+      console.warn("[whatsapp] send failed (connection error), clearing and retrying once:", e);
       clearSocketIfClosed();
-      socket = await connect();
-      await socket.sendMessage(groupJid, { text });
+      await connect();
+      c = await getClientWhenReady();
+      await c.sendMessage(groupJid, text);
     } else {
       throw e;
     }
@@ -167,14 +171,19 @@ export async function sendToGroupWithRetry(groupJid: string, text: string): Prom
 }
 
 export async function sendComposing(groupJid: string, durationMs: number): Promise<void> {
-  const socket = sock ?? (await connect());
-  await socket.sendPresenceUpdate("composing", groupJid);
+  const c = await getClientWhenReady();
+  const chat = await c.getChatById(groupJid);
+  await chat.sendStateTyping();
   await new Promise((r) => setTimeout(r, durationMs));
-  await socket.sendPresenceUpdate("paused", groupJid);
+  await chat.clearState();
 }
 
 export async function fetchAllGroups(): Promise<{ id: string; subject?: string }[]> {
-  const socket = sock ?? (await connect());
-  const groups = await socket.groupFetchAllParticipating();
-  return Object.values(groups).map((g) => ({ id: g.id, subject: g.subject }));
+  const c = await getClientWhenReady();
+  const chats = await c.getChats();
+  const groups = chats.filter((chat) => chat.isGroup);
+  return groups.map((g) => ({
+    id: typeof g.id === "string" ? g.id : (g.id as { _serialized: string })._serialized,
+    subject: g.name,
+  }));
 }
