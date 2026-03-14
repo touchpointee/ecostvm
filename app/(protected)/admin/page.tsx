@@ -133,7 +133,10 @@ export default function AdminDashboardPage() {
             setMessage(null);
             break;
           }
-          if (qrData.message) lastQrMessage = qrData.message;
+          if (qrData.message) {
+            lastQrMessage = qrData.message;
+            setQrHint(qrData.message);
+          }
           if (s === "Connected") break;
           if (s === "Disconnected" && i >= 3) {
             setMessage(lastQrMessage || "No QR yet. Try: 1) Remove all connections, 2) Connect WhatsApp again. In Coolify set replicas to 1.");
@@ -167,6 +170,7 @@ export default function AdminDashboardPage() {
   async function handleRemoveAllConnections() {
     setRemovingConnections(true);
     setMessage(null);
+    setQrHint(null);
     try {
       await fetch("/api/whatsapp/logout", { method: "POST" });
       await fetchStatus();
@@ -294,8 +298,9 @@ export default function AdminDashboardPage() {
                   {qrDataUrl ? (
                     <img src={qrDataUrl} alt="WhatsApp QR" className="h-64 w-64" />
                   ) : (
-                    <div className="flex h-64 w-64 items-center justify-center rounded border-2 border-dashed border-black text-black/70">
-                      Waiting for QR…
+                    <div className="flex h-64 w-64 flex-col items-center justify-center rounded border-2 border-dashed border-black text-center text-black/70">
+                      <span>Waiting for QR…</span>
+                      {qrHint && <span className="mt-2 max-w-[240px] text-xs">{qrHint}</span>}
                     </div>
                   )}
                 </div>
