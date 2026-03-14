@@ -111,8 +111,23 @@ async function createClient(): Promise<Client> {
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   };
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    puppeteerConfig.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+
+  const chromiumPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (chromiumPath) {
+    // Verify the binary actually exists before trying to launch
+    const { access } = await import("fs/promises");
+    try {
+      await access(chromiumPath);
+    } catch {
+      throw new Error(
+        `Chromium not found at "${chromiumPath}". ` +
+        `Check PUPPETEER_EXECUTABLE_PATH. Common paths: /usr/bin/chromium, /usr/bin/chromium-browser`
+      );
+    }
+    puppeteerConfig.executablePath = chromiumPath;
+    console.log(`[whatsapp] using Chromium at ${chromiumPath}`);
+  } else {
+    console.warn("[whatsapp] PUPPETEER_EXECUTABLE_PATH not set – using bundled Chromium (may fail in Docker)");
   }
 
   const wclient = new Client({
