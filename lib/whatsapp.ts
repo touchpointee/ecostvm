@@ -118,7 +118,8 @@ async function createClient(): Promise<Client> {
   const wclient = new Client({
     authStrategy: new RemoteAuth({
       clientId: SESSION_ID,
-      store,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      store: store as any, // wweb.js types omit `data` from Store.save signature
       backupSyncIntervalMs: 5 * 60 * 1000, // sync session to MongoDB every 5 min
     }),
     puppeteer: puppeteerConfig,
