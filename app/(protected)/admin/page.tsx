@@ -35,14 +35,17 @@ export default function AdminDashboardPage() {
   const [qrHint, setQrHint] = useState<string | null>(null);
   const [connectClickedAt, setConnectClickedAt] = useState<number | null>(null);
   const [connecting, setConnecting] = useState(false); // true while handleConnect is running
+  const [statusError, setStatusError] = useState<string | null>(null); // from backend when init fails
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch("/api/whatsapp/status");
       const data = await res.json();
       setStatus(data.status ?? "Disconnected");
+      setStatusError(data.error ?? null);
     } catch {
       setStatus("Disconnected");
+      setStatusError(null);
     }
   }, []);
 
@@ -122,6 +125,7 @@ export default function AdminDashboardPage() {
         const qrData = await qrRes.json();
         const s = statusData.status ?? "Disconnected";
         setStatus(s);
+        setStatusError(statusData.error ?? null);
         if (qrData.qr) setQrDataUrl(qrData.qr);
       } catch {
         // ignore
@@ -139,6 +143,7 @@ export default function AdminDashboardPage() {
     setMessage(null);
     setQrDataUrl(null);
     setQrHint(null);
+    setStatusError(null);
     setStatus("Connecting");
     setConnectClickedAt(Date.now());
     try {
@@ -166,6 +171,7 @@ export default function AdminDashboardPage() {
           const qrData = await qrRes.json();
           const s = statusData.status ?? "Disconnected";
           setStatus(s);
+          setStatusError(statusData.error ?? null);
           if (qrData.qr) {
             setQrDataUrl(qrData.qr);
             setMessage(null);
@@ -343,14 +349,22 @@ export default function AdminDashboardPage() {
             </div>
             {status !== "Connected" && (
               <div className="mt-4">
+                {status === "Disconnected" && (
+                  <p className="mb-3 text-sm font-medium text-black">Click <strong>Connect WhatsApp</strong> above to link your phone. QR will appear here.</p>
+                )}
                 <p className="mb-1 text-sm text-black">Scan QR with WhatsApp (Linked Devices):</p>
                 <p className="mb-2 text-xs text-black/60">QR can take 10–15 seconds and refreshes automatically. Wait for it before clicking Remove all connections.</p>
+                {statusError && (
+                  <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                    Connection failed: {statusError}. In Coolify set <strong>PUPPETEER_EXECUTABLE_PATH</strong> (e.g. /usr/bin/chromium) and use 1 replica.
+                  </div>
+                )}
                 <div className="inline-block rounded-lg border-2 border-black bg-white p-4">
                   {qrDataUrl ? (
                     <img src={qrDataUrl} alt="WhatsApp QR" className="h-64 w-64" />
                   ) : (
                     <div className="flex h-64 w-64 flex-col items-center justify-center rounded border-2 border-dashed border-black text-center text-black/70">
-                      <span>Waiting for QR…</span>
+                      <span>{status === "Connecting" ? "Waiting for QR…" : "No QR yet"}</span>
                       {qrHint && <span className="mt-2 max-w-[240px] text-xs">{qrHint}</span>}
                     </div>
                   )}

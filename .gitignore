@@ -9,8 +9,10 @@ out
 build
 dist
 
-# Data and auth (sensitive)
+# Data and auth (sensitive / Chrome locks)
 .data
+.wwebjs_auth
+.wwebjs_cache
 
 # Env
 .env
