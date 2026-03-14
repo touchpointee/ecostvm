@@ -34,6 +34,7 @@ export default function AdminDashboardPage() {
   const [groupsModalOpen, setGroupsModalOpen] = useState(false);
   const [qrHint, setQrHint] = useState<string | null>(null);
   const [connectClickedAt, setConnectClickedAt] = useState<number | null>(null);
+  const [connecting, setConnecting] = useState(false); // true while handleConnect is running
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -101,18 +102,17 @@ export default function AdminDashboardPage() {
     fetchFeedbacks();
   }, [fetchStatus, fetchJids, fetchQR, fetchFeedbacks]);
 
-  // Re-enable "Remove all connections" 15s after Connect (QR can take ~10s to appear)
+  // Re-enable "Remove all connections" 30s after Connect (give time for QR to appear and scan)
   useEffect(() => {
     if (connectClickedAt == null) return;
-    const t = setTimeout(() => setConnectClickedAt(null), 15000);
+    const t = setTimeout(() => setConnectClickedAt(null), 30000);
     return () => clearTimeout(t);
   }, [connectClickedAt]);
 
-  // Keep refreshing QR while Connecting (Baileys rotates QR every ~20–60s; show the latest)
+  // Keep refreshing status + QR while Connecting: every 2s until we have a QR, then every 8s
   useEffect(() => {
     if (status !== "Connecting") return;
-    const intervalMs = 8000;
-    const t = setInterval(async () => {
+    const poll = async () => {
       try {
         const [statusRes, qrRes] = await Promise.all([
           fetch("/api/whatsapp/status"),
@@ -126,11 +126,16 @@ export default function AdminDashboardPage() {
       } catch {
         // ignore
       }
-    }, intervalMs);
+    };
+    poll(); // immediate first fetch
+    const intervalMs = qrDataUrl ? 8000 : 2000;
+    const t = setInterval(poll, intervalMs);
     return () => clearInterval(t);
-  }, [status]);
+  }, [status, qrDataUrl]);
 
   async function handleConnect() {
+    if (connecting) return;
+    setConnecting(true);
     setMessage(null);
     setQrDataUrl(null);
     setQrHint(null);
@@ -143,6 +148,7 @@ export default function AdminDashboardPage() {
         setMessage(err.error || "Failed to start connection.");
         setStatus("Disconnected");
         setConnectClickedAt(null);
+        setConnecting(false);
         return;
       }
       // Poll for status + QR. Baileys emits QR async; give it time (first delay 2s).
@@ -187,6 +193,8 @@ export default function AdminDashboardPage() {
       setMessage("Failed to start connection.");
       setStatus("Disconnected");
       setConnectClickedAt(null);
+    } finally {
+      setConnecting(false);
     }
   }
 
@@ -206,6 +214,9 @@ export default function AdminDashboardPage() {
   }
 
   async function handleRemoveAllConnections() {
+    if (status === "Connecting" && !window.confirm("This will clear the current QR. You’ll need to click Connect again to get a new one. Continue?")) {
+      return;
+    }
     setRemovingConnections(true);
     setMessage(null);
     setQrHint(null);
@@ -304,17 +315,18 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={handleConnect}
-                    className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+                    disabled={connecting}
+                    className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-70"
                   >
-                    Connect WhatsApp
+                    {connecting ? "Connecting…" : "Connect WhatsApp"}
                   </button>
                   <button
                     type="button"
                     onClick={handleRemoveAllConnections}
-                    disabled={removingConnections || (connectClickedAt != null && Date.now() - connectClickedAt < 15000)}
+                    disabled={removingConnections || (connectClickedAt != null && Date.now() - connectClickedAt < 30000)}
                     className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-70"
                   >
-                    {removingConnections ? "Removing…" : connectClickedAt != null && Date.now() - connectClickedAt < 15000 ? "Remove all connections (wait for QR…)" : "Remove all connections"}
+                    {removingConnections ? "Removing…" : connectClickedAt != null && Date.now() - connectClickedAt < 30000 ? "Remove all connections (wait 30s for QR…)" : "Remove all connections"}
                   </button>
                 </>
               )}
