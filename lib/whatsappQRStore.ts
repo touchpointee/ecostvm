@@ -15,7 +15,11 @@ export async function saveStoredQR(qr: string | null): Promise<void> {
       { upsert: true }
     );
   } catch (e) {
-    console.error("[whatsappQRStore] save failed", e);
+    console.error("[whatsappQRStore] save failed (QR will not be shared across replicas):", e);
+    const msg = String((e as Error).message ?? e);
+    if (msg.includes("5432")) {
+      console.error("[whatsappQRStore] Port 5432 is usually PostgreSQL. MongoDB uses 27017. Check MONGODB_URI in Coolify.");
+    }
   }
 }
 
@@ -28,7 +32,7 @@ export async function getStoredQR(): Promise<string | null> {
     if (Date.now() - updatedAt > TTL_MS) return null;
     return doc.qr as string;
   } catch (e) {
-    console.error("[whatsappQRStore] get failed", e);
+    console.error("[whatsappQRStore] get failed:", e);
     return null;
   }
 }
