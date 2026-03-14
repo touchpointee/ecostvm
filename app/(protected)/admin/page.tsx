@@ -100,24 +100,43 @@ export default function AdminDashboardPage() {
 
   async function handleConnect() {
     setMessage(null);
+    setQrDataUrl(null);
     setStatus("Connecting");
     try {
-      await fetch("/api/whatsapp/connect", { method: "POST" });
-      // Single refresh of status + QR to avoid continuous polling.
-      try {
-        const [statusRes, qrRes] = await Promise.all([
-          fetch("/api/whatsapp/status"),
-          fetch("/api/whatsapp/qr"),
-        ]);
-        const statusData = await statusRes.json();
-        const qrData = await qrRes.json();
-        setStatus(statusData.status ?? "Disconnected");
-        setQrDataUrl(qrData.qr ?? null);
-      } catch {
-        // ignore – user can click Connect again to refresh
+      const connectRes = await fetch("/api/whatsapp/connect", { method: "POST" });
+      if (!connectRes.ok) {
+        const err = await connectRes.json().catch(() => ({}));
+        setMessage(err.error || "Failed to start connection.");
+        setStatus("Disconnected");
+        return;
+      }
+      // Poll for status + QR (Baileys emits QR async; serverless may never share state).
+      const maxAttempts = 20;
+      const intervalMs = 1500;
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((r) => setTimeout(r, i === 0 ? 800 : intervalMs));
+        try {
+          const [statusRes, qrRes] = await Promise.all([
+            fetch("/api/whatsapp/status"),
+            fetch("/api/whatsapp/qr"),
+          ]);
+          const statusData = await statusRes.json();
+          const qrData = await qrRes.json();
+          const s = statusData.status ?? "Disconnected";
+          setStatus(s);
+          if (qrData.qr) setQrDataUrl(qrData.qr);
+          if (s === "Connected") break;
+          if (s === "Disconnected" && i > 2) {
+            setMessage("Still disconnected. If you're on serverless (e.g. Vercel), deploy to a long‑running server (VPS, Railway, Render) so WhatsApp can stay connected.");
+            break;
+          }
+        } catch {
+          // ignore
+        }
       }
     } catch {
       setMessage("Failed to start connection.");
+      setStatus("Disconnected");
     }
   }
 
@@ -271,6 +290,9 @@ export default function AdminDashboardPage() {
                     </div>
                   )}
                 </div>
+                <p className="mt-2 text-xs text-black/60">
+                  QR needs a long‑running server (VPS, Railway, Render). It will not work on serverless (e.g. Vercel) because each request can hit a different instance.
+                </p>
               </div>
             )}
           </section>
