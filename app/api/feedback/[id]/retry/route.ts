@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongo";
 import { getJids } from "@/lib/jids";
-import { connect, sendComposing } from "@/lib/whatsapp";
+import { connect, sendComposing, sendToGroupWithRetry } from "@/lib/whatsapp";
 
 const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
@@ -55,7 +55,7 @@ export async function POST(
     try {
       const socket = await connect();
       await sendComposing(groupJid.trim(), 3000);
-      await socket.sendMessage(groupJid.trim(), { text });
+      await sendToGroupWithRetry(groupJid.trim(), text);
       whatsappSent = true;
     } catch (err) {
       console.error("[api/feedback/:id/retry] WhatsApp send failed", err);

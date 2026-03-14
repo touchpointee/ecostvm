@@ -120,9 +120,50 @@ export async function connect(): Promise<WASocket> {
   }
 }
 
+function isConnectionError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("connection closed") ||
+    lower.includes("socket closed") ||
+    lower.includes("econnreset") ||
+    lower.includes("econnrefused") ||
+    lower.includes("not connected")
+  );
+}
+
+/** Clears the socket so the next connect() creates a fresh connection. Call when send fails due to connection closed. */
+export function clearSocketIfClosed(): void {
+  sock = null;
+  connectPromise = null;
+  connectionStatus = "disconnected";
+  currentQR = null;
+  void saveStoredQR(null);
+}
+
 export async function sendToGroup(groupJid: string, text: string): Promise<void> {
   const socket = sock ?? (await connect());
   await socket.sendMessage(groupJid, { text });
+}
+
+/**
+ * Send message to group; on "connection closed" (or similar) clears socket and retries once with a fresh connection.
+ * Use this for feedback/retry so auto-send is resilient to temporary disconnects.
+ */
+export async function sendToGroupWithRetry(groupJid: string, text: string): Promise<void> {
+  let socket = sock ?? (await connect());
+  try {
+    await socket.sendMessage(groupJid, { text });
+  } catch (e) {
+    if (isConnectionError(e)) {
+      console.warn("[whatsapp] send failed (connection error), clearing socket and retrying once:", e);
+      clearSocketIfClosed();
+      socket = await connect();
+      await socket.sendMessage(groupJid, { text });
+    } else {
+      throw e;
+    }
+  }
 }
 
 export async function sendComposing(groupJid: string, durationMs: number): Promise<void> {

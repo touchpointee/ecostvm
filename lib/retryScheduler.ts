@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "./mongo";
 import { getJids } from "./jids";
-import { connect, sendComposing } from "./whatsapp";
+import { connect, sendComposing, sendToGroupWithRetry } from "./whatsapp";
 
 const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
@@ -32,7 +32,6 @@ async function retryFailedOnce(): Promise<void> {
     }
 
     const jids = await getJids();
-    const socket = await connect();
 
     for (const doc of items) {
       const _id = doc._id as ObjectId;
@@ -50,7 +49,7 @@ async function retryFailedOnce(): Promise<void> {
         const text = formatMessage(id);
         try {
           await sendComposing(groupJid.trim(), 3000);
-          await socket.sendMessage(groupJid.trim(), { text });
+          await sendToGroupWithRetry(groupJid.trim(), text);
           whatsappSent = true;
         } catch (err) {
           console.error("[retryScheduler] WhatsApp send failed", err);

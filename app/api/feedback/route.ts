@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJids } from "@/lib/jids";
-import { connect, sendComposing } from "@/lib/whatsapp";
+import { connect, sendComposing, sendToGroupWithRetry } from "@/lib/whatsapp";
 import { getDb } from "@/lib/mongo";
 import { startRetryScheduler } from "@/lib/retryScheduler";
 
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         const socket = await connect();
         await sendComposing(groupJid.trim(), 3000);
         await randomDelay(1000, 3000);
-        await socket.sendMessage(groupJid.trim(), { text });
+        await sendToGroupWithRetry(groupJid.trim(), text);
         whatsappSent = true;
       } catch (err) {
         console.error("[api/feedback] WhatsApp send failed", err);
