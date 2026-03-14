@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { getCurrentQR, getConnectionStatus } from "@/lib/whatsapp";
+import { getStoredQR } from "@/lib/whatsappQRStore";
 import QRCode from "qrcode";
 
 export async function GET() {
-  const qr = getCurrentQR();
   const connectionStatus = getConnectionStatus();
+  const qr = getCurrentQR() ?? (await getStoredQR());
   if (!qr) {
     const message =
       connectionStatus === "connecting"
         ? "QR not ready yet. Keep waiting or refresh."
-        : "No QR code. Click Connect WhatsApp first; if you already did, click Remove all connections then Connect again. In Coolify, use only 1 replica.";
+        : "No QR code. Click Connect WhatsApp first; if you already did, click Remove all connections then Connect again.";
     return NextResponse.json({ qr: null, message, connectionStatus });
   }
   try {

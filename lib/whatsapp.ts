@@ -8,6 +8,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import path from "path";
 import { rm } from "fs/promises";
+import { saveStoredQR } from "./whatsappQRStore";
 
 const AUTH_DIR = path.join(process.cwd(), ".data", "auth_info_baileys");
 
@@ -42,6 +43,7 @@ export async function logout(): Promise<void> {
     connectPromise = null;
     connectionStatus = "disconnected";
     currentQR = null;
+    void saveStoredQR(null);
     // remove stored auth so that the next connect requires a fresh QR
     try {
       await rm(AUTH_DIR, { recursive: true, force: true });
@@ -68,16 +70,19 @@ async function createSocket(): Promise<WASocket> {
     if (qr) {
       currentQR = qr;
       console.log("[whatsapp] QR received");
+      void saveStoredQR(qr);
     }
     if (connection === "connecting" || connection === "open") {
       connectionStatus = connection === "open" ? "connected" : "connecting";
       if (connection === "open") {
         currentQR = null;
+        void saveStoredQR(null);
       }
     }
     if (connection === "close") {
       connectionStatus = "disconnected";
       currentQR = null;
+      void saveStoredQR(null);
       const statusCode = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
       if (statusCode !== DisconnectReason.loggedOut) {
         sock = null;
