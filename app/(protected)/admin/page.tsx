@@ -30,6 +30,7 @@ export default function AdminDashboardPage() {
   const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [removingConnections, setRemovingConnections] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -135,6 +136,21 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function handleRemoveAllConnections() {
+    setRemovingConnections(true);
+    setMessage(null);
+    try {
+      await fetch("/api/whatsapp/logout", { method: "POST" });
+      await fetchStatus();
+      setQrDataUrl(null);
+      setMessage("All connections removed. Click Connect WhatsApp to get a new QR.");
+    } catch {
+      setMessage("Failed to remove connections.");
+    } finally {
+      setRemovingConnections(false);
+    }
+  }
+
   async function handleSaveJids(e: React.FormEvent) {
     e.preventDefault();
     setSavingJids(true);
@@ -214,13 +230,23 @@ export default function AdminDashboardPage() {
                 {status === "Connected" ? "Connected" : status === "Connecting" ? "Connecting…" : "Disconnected"}
               </div>
               {status !== "Connected" && (
-                <button
-                  type="button"
-                  onClick={handleConnect}
-                  className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
-                >
-                  Connect WhatsApp
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleConnect}
+                    className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+                  >
+                    Connect WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveAllConnections}
+                    disabled={removingConnections}
+                    className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-70"
+                  >
+                    {removingConnections ? "Removing…" : "Remove all connections"}
+                  </button>
+                </>
               )}
               {status === "Connected" && (
                 <button
