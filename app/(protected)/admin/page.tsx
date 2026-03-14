@@ -156,10 +156,12 @@ export default function AdminDashboardPage() {
         setConnecting(false);
         return;
       }
-      // Poll for status + QR. Baileys emits QR async; give it time (first delay 2s).
-      const maxAttempts = 24;
+      // Poll for up to 60 s. The backend may briefly go "Disconnected" while purging
+      // an invalid session and auto-reconnecting (takes ~5 s), so we keep polling
+      // through transient disconnects rather than giving up immediately.
+      const maxAttempts = 40;   // 40 × 1.5 s ≈ 60 s total
       const intervalMs = 1500;
-      let lastQrMessage = "";
+      let disconnectedStreak = 0; // consecutive "Disconnected" polls
       for (let i = 0; i < maxAttempts; i++) {
         await new Promise((r) => setTimeout(r, i === 0 ? 2000 : intervalMs));
         try {
@@ -175,24 +177,29 @@ export default function AdminDashboardPage() {
           if (qrData.qr) {
             setQrDataUrl(qrData.qr);
             setMessage(null);
-            setConnectClickedAt(null); // allow Remove once QR is showing
-            // Don't break: keep polling so we get status updates (Connected) and QR refreshes
+            setConnectClickedAt(null);
           }
           if (qrData.message) {
-            lastQrMessage = qrData.message;
             setQrHint(qrData.message);
           }
           if (s === "Connected") {
             setConnectClickedAt(null);
             break;
           }
-          // QR can take ~10–15s; don't give up too early (i>=10 ≈ 15s)
-          if (s === "Disconnected" && i >= 10) {
-            setMessage(lastQrMessage || "No QR after 15s. Try: 1) Remove all connections, 2) Connect WhatsApp again. Wait for QR before clicking Remove.");
-            break;
+          if (s === "Connecting") {
+            disconnectedStreak = 0; // reset – backend is progressing
+          }
+          if (s === "Disconnected") {
+            disconnectedStreak++;
+            // Allow up to 8 consecutive "Disconnected" polls (~12 s) so the backend's
+            // 5-second auto-reconnect has time to kick in and generate a fresh QR.
+            if (disconnectedStreak >= 8) {
+              setMessage("Could not connect. Check Coolify logs for errors, then click Connect WhatsApp again.");
+              break;
+            }
           }
         } catch {
-          // ignore
+          // ignore network errors during polling
         }
       }
     } catch {
