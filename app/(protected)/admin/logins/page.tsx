@@ -37,8 +37,8 @@ export default function LoginsPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [removing, setRemoving] = useState<string | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -81,6 +81,7 @@ export default function LoginsPage() {
       }
       setMessage({ type: "success", text: "Member saved successfully." });
       setForm(emptyForm);
+      setAddMemberOpen(false);
       await fetchMembers();
     } catch {
       setMessage({ type: "error", text: "Something went wrong while saving." });
@@ -122,25 +123,6 @@ export default function LoginsPage() {
     }
   }
 
-  async function handleRemove(contactNumber: string) {
-    setRemoving(contactNumber);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/logins/${encodeURIComponent(contactNumber)}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to remove member" });
-        return;
-      }
-      setMessage({ type: "success", text: "Member removed." });
-      await fetchMembers();
-    } catch {
-      setMessage({ type: "error", text: "Something went wrong while removing." });
-    } finally {
-      setRemoving(null);
-    }
-  }
-
   return (
     <div className="min-h-screen bg-white">
       <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-6 py-4">
@@ -155,6 +137,13 @@ export default function LoginsPage() {
           >
             Open search page
           </Link>
+          <button
+            type="button"
+            onClick={() => setAddMemberOpen(true)}
+            className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          >
+            Add member
+          </button>
           <a
             href="/api/logins?format=xlsx"
             className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
@@ -166,59 +155,6 @@ export default function LoginsPage() {
       <div className="p-6">
         <div className="mx-auto max-w-7xl space-y-8">
           <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-            <section className="rounded-2xl border-2 border-black bg-white p-6 shadow-lg">
-              <h2 className="text-lg font-semibold text-black">Add member</h2>
-              <p className="mt-1 text-sm text-black/80">
-                Contact number is used for login access. If the number already exists, this updates that member.
-              </p>
-              <form onSubmit={handleSave} className="mt-5 grid gap-4 md:grid-cols-2">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-black">Name</label>
-                  <input id="name" value={form.name} onChange={(e) => updateField("name", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div>
-                  <label htmlFor="membershipNumber" className="block text-sm font-medium text-black">Membership no</label>
-                  <input id="membershipNumber" value={form.membershipNumber} onChange={(e) => updateField("membershipNumber", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div>
-                  <label htmlFor="contactNumber" className="block text-sm font-medium text-black">Contact no</label>
-                  <input id="contactNumber" value={form.contactNumber} onChange={(e) => updateField("contactNumber", e.target.value)} required className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div>
-                  <label htmlFor="vehicleColor" className="block text-sm font-medium text-black">Color of vehicle</label>
-                  <input id="vehicleColor" value={form.vehicleColor} onChange={(e) => updateField("vehicleColor", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div>
-                  <label htmlFor="vehicleNumber" className="block text-sm font-medium text-black">Vehicle no</label>
-                  <input id="vehicleNumber" value={form.vehicleNumber} onChange={(e) => updateField("vehicleNumber", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div>
-                  <label htmlFor="place" className="block text-sm font-medium text-black">Place</label>
-                  <input id="place" value={form.place} onChange={(e) => updateField("place", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div className="md:col-span-2">
-                  <label htmlFor="address" className="block text-sm font-medium text-black">Address</label>
-                  <textarea id="address" rows={3} value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div>
-                  <label htmlFor="bloodGroup" className="block text-sm font-medium text-black">Blood group</label>
-                  <input id="bloodGroup" value={form.bloodGroup} onChange={(e) => updateField("bloodGroup", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div>
-                  <label htmlFor="dateOfBirth" className="block text-sm font-medium text-black">Date of birth</label>
-                  <input id="dateOfBirth" value={form.dateOfBirth} onChange={(e) => updateField("dateOfBirth", e.target.value)} placeholder="YYYY-MM-DD or Excel text" className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
-                </div>
-                <div className="md:col-span-2 flex flex-wrap gap-3">
-                  <button type="submit" disabled={saving} className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-70">
-                    {saving ? "Saving..." : "Save member"}
-                  </button>
-                  <button type="button" onClick={() => setForm(emptyForm)} className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white">
-                    Clear form
-                  </button>
-                </div>
-              </form>
-            </section>
-
             <section className="rounded-2xl border-2 border-black bg-white p-6 shadow-lg">
               <h2 className="text-lg font-semibold text-black">Upload Excel</h2>
               <p className="mt-1 text-sm text-black/80">
@@ -274,7 +210,6 @@ export default function LoginsPage() {
                       <th className="px-3 py-2">Blood</th>
                       <th className="px-3 py-2">DOB</th>
                       <th className="px-3 py-2">Source</th>
-                      <th className="px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black bg-white">
@@ -294,16 +229,6 @@ export default function LoginsPage() {
                         <td className="px-3 py-2 text-black">{member.bloodGroup || "-"}</td>
                         <td className="px-3 py-2 text-black">{member.dateOfBirth || "-"}</td>
                         <td className="px-3 py-2 text-black">{member.source}</td>
-                        <td className="px-3 py-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleRemove(member.contactNumber)}
-                            disabled={removing === member.contactNumber}
-                            className="rounded-lg border-2 border-black bg-white px-3 py-1 text-xs font-medium text-black hover:bg-black hover:text-white disabled:opacity-60"
-                          >
-                            {removing === member.contactNumber ? "Removing..." : "Remove"}
-                          </button>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -319,6 +244,90 @@ export default function LoginsPage() {
           )}
         </div>
       </div>
+
+      {addMemberOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setAddMemberOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-member-title"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border-2 border-black bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-6 py-4">
+              <div>
+                <h2 id="add-member-title" className="text-lg font-semibold text-black">Add member</h2>
+                <p className="text-sm text-black/70">Contact number is used for login access.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAddMemberOpen(false)}
+                className="rounded-lg p-2 text-black hover:bg-black hover:text-white"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6">
+              <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-black">Name</label>
+                  <input id="name" value={form.name} onChange={(e) => updateField("name", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div>
+                  <label htmlFor="membershipNumber" className="block text-sm font-medium text-black">Membership no</label>
+                  <input id="membershipNumber" value={form.membershipNumber} onChange={(e) => updateField("membershipNumber", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div>
+                  <label htmlFor="contactNumber" className="block text-sm font-medium text-black">Contact no</label>
+                  <input id="contactNumber" value={form.contactNumber} onChange={(e) => updateField("contactNumber", e.target.value)} required className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div>
+                  <label htmlFor="vehicleColor" className="block text-sm font-medium text-black">Color of vehicle</label>
+                  <input id="vehicleColor" value={form.vehicleColor} onChange={(e) => updateField("vehicleColor", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div>
+                  <label htmlFor="vehicleNumber" className="block text-sm font-medium text-black">Vehicle no</label>
+                  <input id="vehicleNumber" value={form.vehicleNumber} onChange={(e) => updateField("vehicleNumber", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div>
+                  <label htmlFor="place" className="block text-sm font-medium text-black">Place</label>
+                  <input id="place" value={form.place} onChange={(e) => updateField("place", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div className="md:col-span-2">
+                  <label htmlFor="address" className="block text-sm font-medium text-black">Address</label>
+                  <textarea id="address" rows={3} value={form.address} onChange={(e) => updateField("address", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div>
+                  <label htmlFor="bloodGroup" className="block text-sm font-medium text-black">Blood group</label>
+                  <input id="bloodGroup" value={form.bloodGroup} onChange={(e) => updateField("bloodGroup", e.target.value)} className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div>
+                  <label htmlFor="dateOfBirth" className="block text-sm font-medium text-black">Date of birth</label>
+                  <input id="dateOfBirth" value={form.dateOfBirth} onChange={(e) => updateField("dateOfBirth", e.target.value)} placeholder="YYYY-MM-DD or Excel text" className="mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500" />
+                </div>
+                <div className="md:col-span-2 flex flex-wrap gap-3 pt-2">
+                  <button type="submit" disabled={saving} className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-70">
+                    {saving ? "Saving..." : "Save member"}
+                  </button>
+                  <button type="button" onClick={() => setForm(emptyForm)} className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white">
+                    Clear form
+                  </button>
+                  <button type="button" onClick={() => setAddMemberOpen(false)} className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
