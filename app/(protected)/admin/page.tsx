@@ -39,7 +39,7 @@ export default function AdminDashboardPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/whatsapp/status");
+      const res = await fetch("/api/whatsapp/status", { cache: "no-store" });
       const data = await res.json();
       setStatus(data.status ?? "Disconnected");
       setStatusError(data.error ?? null);
@@ -51,7 +51,7 @@ export default function AdminDashboardPage() {
 
   const fetchQR = useCallback(async () => {
     try {
-      const res = await fetch("/api/whatsapp/qr");
+      const res = await fetch("/api/whatsapp/qr", { cache: "no-store" });
       const data = await res.json();
       setQrDataUrl(data.qr ?? null);
     } catch {
@@ -118,8 +118,8 @@ export default function AdminDashboardPage() {
     const poll = async () => {
       try {
         const [statusRes, qrRes] = await Promise.all([
-          fetch("/api/whatsapp/status"),
-          fetch("/api/whatsapp/qr"),
+          fetch("/api/whatsapp/status", { cache: "no-store" }),
+          fetch("/api/whatsapp/qr", { cache: "no-store" }),
         ]);
         const statusData = await statusRes.json();
         const qrData = await qrRes.json();
@@ -166,8 +166,8 @@ export default function AdminDashboardPage() {
         await new Promise((r) => setTimeout(r, i === 0 ? 2000 : intervalMs));
         try {
           const [statusRes, qrRes] = await Promise.all([
-            fetch("/api/whatsapp/status"),
-            fetch("/api/whatsapp/qr"),
+            fetch("/api/whatsapp/status", { cache: "no-store" }),
+            fetch("/api/whatsapp/qr", { cache: "no-store" }),
           ]);
           const statusData = await statusRes.json();
           const qrData = await qrRes.json();
