@@ -1,12 +1,12 @@
 /**
  * MongoDB-backed RemoteAuth store for whatsapp-web.js.
  *
- * whatsapp-web.js zips the Puppeteer userDataDir and hands us the Buffer.
- * We store it as a base64 string in MongoDB and extract it on the next start,
- * so the browser session (cookies / keys) survives container restarts.
+ * RemoteAuth saves a `${session}.zip` file on disk and asks the custom store
+ * to persist / restore that zip blob by session name.
  */
 
-import AdmZip from "adm-zip";
+import path from "path";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { getDb } from "./mongo";
 
 const COLLECTION = "whatsapp_sessions";
@@ -18,42 +18,55 @@ interface SessionDoc {
 }
 
 export class MongoSessionStore {
+  private normalizeSession(session: string): string {
+    return path.basename(session);
+  }
+
   async sessionExists({ session }: { session: string }): Promise<boolean> {
     const db = await getDb();
-    const doc = await db.collection<SessionDoc>(COLLECTION).findOne({ session });
+    const doc = await db.collection<SessionDoc>(COLLECTION).findOne({
+      session: this.normalizeSession(session),
+    });
     return !!doc;
   }
 
-  async save({ session, data }: { session: string; data: Buffer }): Promise<void> {
+  async save({ session }: { session: string }): Promise<void> {
     const db = await getDb();
+    const normalizedSession = this.normalizeSession(session);
+    const zipPath = `${session}.zip`;
+    const data = await readFile(zipPath);
     await db.collection<SessionDoc>(COLLECTION).updateOne(
-      { session },
+      { session: normalizedSession },
       {
         $set: {
-          session,
+          session: normalizedSession,
           data: data.toString("base64"),
           updatedAt: new Date(),
         },
       },
       { upsert: true }
     );
-    console.log(`[whatsapp] session "${session}" saved to MongoDB`);
+    console.log(`[whatsapp] session "${normalizedSession}" saved to MongoDB`);
   }
 
   async extract({ session, path: destPath }: { session: string; path: string }): Promise<void> {
     const db = await getDb();
-    const doc = await db.collection<SessionDoc>(COLLECTION).findOne({ session });
-    if (!doc) throw new Error(`Session "${session}" not found in MongoDB`);
+    const normalizedSession = this.normalizeSession(session);
+    const doc = await db.collection<SessionDoc>(COLLECTION).findOne({
+      session: normalizedSession,
+    });
+    if (!doc) throw new Error(`Session "${normalizedSession}" not found in MongoDB`);
 
     const buffer = Buffer.from(doc.data, "base64");
-    const zip = new AdmZip(buffer);
-    zip.extractAllTo(destPath, /* overwrite */ true);
-    console.log(`[whatsapp] session "${session}" restored from MongoDB to ${destPath}`);
+    await mkdir(path.dirname(destPath), { recursive: true });
+    await writeFile(destPath, buffer);
+    console.log(`[whatsapp] session "${normalizedSession}" restored from MongoDB to ${destPath}`);
   }
 
   async delete({ session }: { session: string }): Promise<void> {
     const db = await getDb();
-    await db.collection<SessionDoc>(COLLECTION).deleteOne({ session });
-    console.log(`[whatsapp] session "${session}" deleted from MongoDB`);
+    const normalizedSession = this.normalizeSession(session);
+    await db.collection<SessionDoc>(COLLECTION).deleteOne({ session: normalizedSession });
+    console.log(`[whatsapp] session "${normalizedSession}" deleted from MongoDB`);
   }
 }

@@ -15,6 +15,7 @@ export default function FeedbackPage() {
   const [type, setType] = useState<"" | "Appreciation" | "Escalation">("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,6 +46,7 @@ export default function FeedbackPage() {
         return;
       }
       setMessage({ type: "success", text: "Thank you! Your feedback has been submitted." });
+      setSuccessModalOpen(true);
       setName("");
       setContactNumber("");
       setVehicleNumber("");
@@ -216,6 +218,35 @@ export default function FeedbackPage() {
         </div>
       </main>
       <Footer />
+
+      {successModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setSuccessModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="feedback-success-title"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border-2 border-black bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="feedback-success-title" className="text-xl font-semibold text-black">
+              Thank you!
+            </h2>
+            <p className="mt-2 text-sm text-black/80">
+              Your feedback has been submitted.
+            </p>
+            <button
+              type="button"
+              onClick={() => setSuccessModalOpen(false)}
+              className="mt-6 w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black hover:bg-yellow-300"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

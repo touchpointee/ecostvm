@@ -19,6 +19,7 @@ export default function AdminLayout({
 
   const nav = [
     { href: "/admin", label: "Dashboard" },
+    { href: "/admin/feedbacks", label: "Feedbacks" },
     { href: "/admin/logins", label: "Members" },
     { href: "/admin/logins/search", label: "Search" },
   ];
