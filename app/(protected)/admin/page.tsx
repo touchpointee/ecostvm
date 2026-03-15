@@ -368,7 +368,7 @@ export default function AdminDashboardPage() {
                 )}
                 {status === "Disconnected" && connecting === false && (
                   <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                    <strong>Coolify:</strong> Use <strong>1 replica</strong> only. If you have 2+ replicas, Connect runs on one container but status/QR are read from another, so the QR never appears. Check your app logs for &quot;[whatsapp]&quot; errors.
+                    <strong>If the QR never appears:</strong> In Coolify, keep this app at <strong>1 replica</strong>. Then open your app <strong>Logs</strong> and look for lines containing <code className="rounded bg-amber-100 px-1">[whatsapp]</code> – that will show why the connection failed (e.g. Chromium path, missing libs).
                   </div>
                 )}
                 <div className="inline-block rounded-lg border-2 border-black bg-white p-4">
