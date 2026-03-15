@@ -155,6 +155,12 @@ export default function LoginsPage() {
           >
             Open search page
           </Link>
+          <a
+            href="/api/logins?format=xlsx"
+            className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+          >
+            Download Excel
+          </a>
         </div>
       </header>
       <div className="p-6">

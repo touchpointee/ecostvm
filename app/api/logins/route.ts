@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureMemberIndexes, listMembers, upsertMember } from "@/lib/members";
+import { createMembersWorkbook } from "@/lib/xlsx";
 
 const ADMIN_COOKIE = "ecostvm_admin";
 
@@ -30,6 +31,17 @@ export async function GET(request: NextRequest) {
       bloodGroup: searchParams.get("bloodGroup") ?? "",
       dateOfBirth: searchParams.get("dateOfBirth") ?? "",
     });
+    if (searchParams.get("format") === "xlsx") {
+      const workbook = createMembersWorkbook(items);
+      const filename = `members-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      return new NextResponse(new Uint8Array(workbook), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    }
     return NextResponse.json({ items });
   } catch (e) {
     console.error("[api/logins GET]", e);
