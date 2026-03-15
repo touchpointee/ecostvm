@@ -112,22 +112,35 @@ async function createClient(): Promise<Client> {
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   };
 
-  const chromiumPath = process.env.PUPPETEER_EXECUTABLE_PATH;
-  if (chromiumPath) {
-    // Verify the binary actually exists before trying to launch
-    const { access } = await import("fs/promises");
+  // Coolify often does not pass Nixpacks build env to runtime – default to Linux paths when unset
+  const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  const candidates = envPath
+    ? [envPath]
+    : process.platform === "linux"
+      ? ["/usr/bin/chromium-browser", "/usr/bin/chromium", "/usr/bin/google-chrome"]
+      : [];
+
+  const { access } = await import("fs/promises");
+  let chromiumPath: string | null = null;
+  for (const p of candidates) {
     try {
-      await access(chromiumPath);
+      await access(p);
+      chromiumPath = p;
+      break;
     } catch {
-      throw new Error(
-        `Chromium not found at "${chromiumPath}". ` +
-        `Check PUPPETEER_EXECUTABLE_PATH. Common paths: /usr/bin/chromium, /usr/bin/chromium-browser`
-      );
+      continue;
     }
+  }
+
+  if (chromiumPath) {
     puppeteerConfig.executablePath = chromiumPath;
     console.log(`[whatsapp] using Chromium at ${chromiumPath}`);
+  } else if (envPath) {
+    throw new Error(
+      `Chromium not found at "${envPath}". Check PUPPETEER_EXECUTABLE_PATH.`
+    );
   } else {
-    console.warn("[whatsapp] PUPPETEER_EXECUTABLE_PATH not set – using bundled Chromium (may fail in Docker)");
+    console.warn("[whatsapp] No Chromium found. On Coolify set PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser");
   }
 
   const wclient = new Client({
