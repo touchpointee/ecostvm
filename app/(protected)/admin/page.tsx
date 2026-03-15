@@ -363,7 +363,12 @@ export default function AdminDashboardPage() {
                 <p className="mb-2 text-xs text-black/60">QR can take 10–15 seconds and refreshes automatically. Wait for it before clicking Remove all connections.</p>
                 {statusError && (
                   <div className="mb-3 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
-                    Connection failed: {statusError}. In Coolify set <strong>PUPPETEER_EXECUTABLE_PATH</strong> (e.g. /usr/bin/chromium) and use 1 replica.
+                    Connection failed: {statusError}. In Coolify set <strong>PUPPETEER_EXECUTABLE_PATH</strong> (e.g. /usr/bin/chromium) and use <strong>1 replica</strong>.
+                  </div>
+                )}
+                {status === "Disconnected" && connecting === false && (
+                  <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                    <strong>Coolify:</strong> Use <strong>1 replica</strong> only. If you have 2+ replicas, Connect runs on one container but status/QR are read from another, so the QR never appears. Check your app logs for &quot;[whatsapp]&quot; errors.
                   </div>
                 )}
                 <div className="inline-block rounded-lg border-2 border-black bg-white p-4">
