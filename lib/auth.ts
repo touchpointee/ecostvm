@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { getDb } from "./mongo";
+import { normalizePhoneNumber, upsertMember, listMembers, removeMember } from "./members";
 
 const COOKIE_NAME = "ecostvm_session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 days
@@ -13,7 +14,7 @@ function getSecret(): string {
 }
 
 function normalizeNumber(value: string): string {
-  return value.replace(/\D/g, "").trim();
+  return normalizePhoneNumber(value);
 }
 
 /** Sign a value with HMAC (Node server only). */
@@ -71,44 +72,17 @@ export async function isAllowedNumber(phoneNumber: string): Promise<boolean> {
 }
 
 export async function addLogin(phoneNumber: string): Promise<{ ok: boolean; error?: string }> {
-  const normalized = normalizeNumber(phoneNumber);
-  if (!normalized) return { ok: false, error: "Invalid number" };
-  if (normalized.length < 10) return { ok: false, error: "Number too short" };
-  const db = await getDb();
-  try {
-    await db.collection("logins").updateOne(
-      { phoneNumber: normalized },
-      { $set: { phoneNumber: normalized, updatedAt: new Date() } },
-      { upsert: true }
-    );
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to add" };
-  }
+  const result = await upsertMember({ contactNumber: phoneNumber, source: "bootstrap" });
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
 }
 
 export async function removeLogin(phoneNumber: string): Promise<{ ok: boolean; error?: string }> {
-  const normalized = normalizeNumber(phoneNumber);
-  if (!normalized) return { ok: false, error: "Invalid number" };
-  const db = await getDb();
-  try {
-    const result = await db.collection("logins").deleteOne({ phoneNumber: normalized });
-    return { ok: result.deletedCount > 0 };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Failed to remove" };
-  }
+  return removeMember(phoneNumber);
 }
 
 export async function listLogins(): Promise<string[]> {
-  const db = await getDb();
-  const docs = await db
-    .collection<{ phoneNumber?: unknown }>("logins")
-    .find({})
-    .sort({ phoneNumber: 1 })
-    .toArray();
-  return docs
-    .map((d) => (typeof d.phoneNumber === "string" ? d.phoneNumber : ""))
-    .filter((v) => v.length > 0);
+  const members = await listMembers();
+  return members.map((member) => member.contactNumber).filter((value) => value.length > 0);
 }
 
 export { COOKIE_NAME, MAX_AGE };

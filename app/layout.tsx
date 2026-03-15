@@ -11,6 +11,11 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   title: "EcoSport TVM",
   description: "EcoSport TVM - Vehicle Feedback & Management",
+  icons: {
+    icon: "/ecostvm-logo.png",
+    shortcut: "/ecostvm-logo.png",
+    apple: "/ecostvm-logo.png",
+  },
 };
 
 export default function RootLayout({

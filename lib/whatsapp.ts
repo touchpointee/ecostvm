@@ -2,6 +2,7 @@ import { Client, RemoteAuth } from "whatsapp-web.js";
 import path from "path";
 import { rm } from "fs/promises";
 import { MongoSessionStore } from "./whatsappSessionStore";
+import { saveStoredQR } from "./whatsappQRStore";
 
 // RemoteAuth uses clientId "main" → temp dir is wwebjs_temp_session_main
 const WWEBJS_AUTH_DIR = path.join(process.cwd(), ".wwebjs_auth");
@@ -66,6 +67,7 @@ export async function logout(): Promise<void> {
   G.connectionStatus = "disconnected";
   G.currentQR = null;
   G.lastInitError = null;
+  await saveStoredQR(null);
   try {
     if (prev) {
       try { await prev.logout(); } catch {}
@@ -153,6 +155,7 @@ async function createClient(): Promise<Client> {
     G.currentQR = qr;
     G.connectionStatus = "connecting";
     G.lastInitError = null;
+    void saveStoredQR(qr);
     console.log("[whatsapp] QR received");
   });
 
@@ -161,6 +164,7 @@ async function createClient(): Promise<Client> {
     G.connectionStatus = "connected";
     G.currentQR = null;
     G.lastInitError = null;
+    void saveStoredQR(null);
     console.log("[whatsapp] client ready");
     if (G.readyResolve) {
       G.readyResolve(wclient);
@@ -179,6 +183,7 @@ async function createClient(): Promise<Client> {
     G.connectPromise = null;
     G.readyPromise = null;
     G.readyResolve = null;
+    await saveStoredQR(null);
 
     if (reason === "LOGOUT") {
       G.client = null;
@@ -211,6 +216,7 @@ async function createClient(): Promise<Client> {
       G.readyPromise = null;
       G.readyResolve = null;
       G.connectionStatus = "disconnected";
+      await saveStoredQR(null);
       try { await rm(SESSION_DIR, { recursive: true, force: true }); } catch {}
       setTimeout(() => {
         connect().catch((err) => console.error("[whatsapp] retry after lock failed", err));
@@ -222,6 +228,7 @@ async function createClient(): Promise<Client> {
       G.client = null;
       G.readyPromise = null;
       G.readyResolve = null;
+      await saveStoredQR(null);
     }
   });
 
@@ -244,6 +251,7 @@ export async function connect(): Promise<Client> {
   G.lastInitError = null;
   G.connectionStatus = "connecting";
   G.currentQR = null;
+  await saveStoredQR(null);
 
   G.connectPromise = createClient();
   try {
@@ -278,6 +286,7 @@ export function clearSocketIfClosed(): void {
   G.readyResolve = null;
   G.connectionStatus = "disconnected";
   G.currentQR = null;
+  void saveStoredQR(null);
 }
 
 export async function sendToGroup(groupJid: string, text: string): Promise<void> {

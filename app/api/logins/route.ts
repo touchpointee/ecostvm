@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listLogins, addLogin } from "@/lib/auth";
+import { ensureMemberIndexes, listMembers, upsertMember } from "@/lib/members";
 
 const ADMIN_COOKIE = "ecostvm_admin";
 
@@ -16,12 +16,25 @@ export async function GET(request: NextRequest) {
   if (unauthorized) return unauthorized;
 
   try {
-    const numbers = await listLogins();
-    return NextResponse.json({ numbers });
+    await ensureMemberIndexes();
+    const { searchParams } = new URL(request.url);
+    const items = await listMembers({
+      q: searchParams.get("q") ?? "",
+      name: searchParams.get("name") ?? "",
+      membershipNumber: searchParams.get("membershipNumber") ?? "",
+      contactNumber: searchParams.get("contactNumber") ?? "",
+      vehicleNumber: searchParams.get("vehicleNumber") ?? "",
+      vehicleColor: searchParams.get("vehicleColor") ?? "",
+      place: searchParams.get("place") ?? "",
+      address: searchParams.get("address") ?? "",
+      bloodGroup: searchParams.get("bloodGroup") ?? "",
+      dateOfBirth: searchParams.get("dateOfBirth") ?? "",
+    });
+    return NextResponse.json({ items });
   } catch (e) {
     console.error("[api/logins GET]", e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Failed to list logins" },
+      { error: e instanceof Error ? e.message : "Failed to list members" },
       { status: 500 }
     );
   }
@@ -32,24 +45,28 @@ export async function POST(request: NextRequest) {
   if (unauthorized) return unauthorized;
 
   try {
+    await ensureMemberIndexes();
     const body = await request.json();
-    const raw = body?.number ?? body?.phoneNumber ?? "";
-    const number = String(raw).replace(/\D/g, "").trim();
-    if (!number || number.length < 10) {
-      return NextResponse.json(
-        { error: "Enter a valid phone number (at least 10 digits)." },
-        { status: 400 }
-      );
-    }
-    const result = await addLogin(number);
+    const result = await upsertMember({
+      name: body?.name,
+      membershipNumber: body?.membershipNumber,
+      contactNumber: body?.contactNumber ?? body?.number ?? body?.phoneNumber,
+      vehicleColor: body?.vehicleColor,
+      vehicleNumber: body?.vehicleNumber,
+      place: body?.place,
+      address: body?.address,
+      bloodGroup: body?.bloodGroup,
+      dateOfBirth: body?.dateOfBirth,
+      source: "manual",
+    });
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
-    return NextResponse.json({ success: true, number });
+    return NextResponse.json({ success: true, item: result.member });
   } catch (e) {
     console.error("[api/logins POST]", e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Failed to add login" },
+      { error: e instanceof Error ? e.message : "Failed to save member" },
       { status: 500 }
     );
   }
