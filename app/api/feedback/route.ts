@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getJids } from "@/lib/jids";
 import { connect, sendComposing, sendToGroupWithRetry } from "@/lib/whatsapp";
 import { getDb } from "@/lib/mongo";
-import { startRetryScheduler } from "@/lib/retryScheduler";
+import { startBackgroundJobs } from "@/lib/backgroundJobs";
 
 const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
@@ -40,8 +40,7 @@ function randomDelay(minMs: number, maxMs: number): Promise<void> {
   return new Promise((r) => setTimeout(r, delay));
 }
 
-// Ensure the background retry scheduler is running in this server process.
-startRetryScheduler();
+startBackgroundJobs();
 
 export async function POST(request: NextRequest) {
   try {

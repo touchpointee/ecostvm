@@ -93,7 +93,7 @@ export default function FeedbacksPage() {
           </div>
           <button
             type="button"
-            onClick={fetchItems}
+            onClick={() => fetchItems({ name: nameFilter, advisor: advisorFilter })}
             disabled={loading}
             className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-70"
           >

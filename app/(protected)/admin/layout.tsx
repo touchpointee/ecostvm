@@ -24,6 +24,7 @@ export default function AdminLayout({
     { href: "/admin/feedbacks", label: "Feedbacks" },
     { href: "/admin/logins", label: "Members" },
     { href: "/admin/logins/search", label: "Search" },
+    { href: "/admin/birthdays", label: "Birthdays" },
   ];
 
   const navContent = (

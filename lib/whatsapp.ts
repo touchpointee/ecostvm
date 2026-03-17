@@ -1,6 +1,6 @@
-import { Client, RemoteAuth } from "whatsapp-web.js";
+import { Client, MessageMedia, RemoteAuth } from "whatsapp-web.js";
 import path from "path";
-import { rm } from "fs/promises";
+import { access, lstat, mkdir, readdir, rm, unlink } from "fs/promises";
 import { MongoSessionStore } from "./whatsappSessionStore";
 import { saveStoredQR } from "./whatsappQRStore";
 
@@ -25,6 +25,7 @@ declare global {
         readyPromise: Promise<Client> | null;
         readyResolve: ((c: Client) => void) | null;
         lastInitError: string | null;
+        mediaPatchApplied: boolean;
       }
     | undefined;
 }
@@ -38,6 +39,7 @@ if (!global._wwjs) {
     readyPromise: null,
     readyResolve: null,
     lastInitError: null,
+    mediaPatchApplied: false,
   };
 }
 
@@ -98,8 +100,95 @@ async function clearBrowserLock(): Promise<void> {
   }
 }
 
+async function ensureMediaSendPatch(client: Client): Promise<void> {
+  if (G.mediaPatchApplied) return;
+
+  const page = (client as Client & { pupPage?: { evaluate: (fn: () => void) => Promise<void> } }).pupPage;
+  if (!page) return;
+
+  await page.evaluate(() => {
+    type WWebJSWithPatch = {
+      sendMessage: (chat: unknown, content: unknown, options?: Record<string, unknown>) => Promise<unknown>;
+      __ecostvmMediaPatchApplied?: boolean;
+    };
+
+    const wweb = (window as Window & typeof globalThis & { WWebJS?: WWebJSWithPatch }).WWebJS;
+    if (!wweb || wweb.__ecostvmMediaPatchApplied) return;
+
+    const originalSendMessage = wweb.sendMessage.bind(wweb);
+    wweb.sendMessage = async (chat, content, options = {}) => {
+      if (options.media) {
+        const caption =
+          typeof options.caption === "string" && options.caption.trim()
+            ? options.caption.trim()
+            : typeof content === "string" && content.trim()
+              ? content.trim()
+              : " ";
+        content = " ";
+        options.caption = caption;
+        options.extraOptions = {
+          ...(typeof options.extraOptions === "object" && options.extraOptions ? options.extraOptions : {}),
+          body: caption,
+        };
+      }
+      return originalSendMessage(chat, content, options);
+    };
+    wweb.__ecostvmMediaPatchApplied = true;
+  });
+
+  G.mediaPatchApplied = true;
+}
+
 // ─── Create & wire up a new Client ───────────────────────────────────────────
 const store = new MongoSessionStore();
+
+class SafeRemoteAuth extends RemoteAuth {
+  async deleteMetadata() {
+    const self = this as unknown as RemoteAuth & {
+      tempDir: string;
+      requiredDirs: string[];
+      rmMaxRetries: number;
+    };
+
+    const sessionDirs = [self.tempDir, path.join(self.tempDir, "Default")];
+
+    for (const dir of sessionDirs) {
+      try {
+        await access(dir);
+      } catch {
+        await mkdir(dir, { recursive: true }).catch(() => {});
+        continue;
+      }
+
+      let sessionFiles: string[] = [];
+      try {
+        sessionFiles = await readdir(dir);
+      } catch {
+        continue;
+      }
+
+      for (const element of sessionFiles) {
+        if (self.requiredDirs.includes(element)) continue;
+
+        const dirElement = path.join(dir, element);
+        try {
+          const stats = await lstat(dirElement);
+          if (stats.isDirectory()) {
+            await rm(dirElement, {
+              recursive: true,
+              force: true,
+              maxRetries: self.rmMaxRetries,
+            }).catch(() => {});
+          } else {
+            await unlink(dirElement).catch(() => {});
+          }
+        } catch {
+          // Ignore files that disappear while the profile is being prepared.
+        }
+      }
+    }
+  }
+}
 
 async function createClient(): Promise<Client> {
   await destroyExistingClient();
@@ -135,7 +224,7 @@ async function createClient(): Promise<Client> {
   }
 
   const wclient = new Client({
-    authStrategy: new RemoteAuth({
+    authStrategy: new SafeRemoteAuth({
       clientId: SESSION_ID,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       store: store as any, // wweb.js types omit `data` from Store.save signature
@@ -166,6 +255,9 @@ async function createClient(): Promise<Client> {
     G.lastInitError = null;
     void saveStoredQR(null);
     console.log("[whatsapp] client ready");
+    void ensureMediaSendPatch(wclient).catch((error) => {
+      console.error("[whatsapp] failed to patch media send behavior", error);
+    });
     if (G.readyResolve) {
       G.readyResolve(wclient);
       G.readyResolve = null;
@@ -256,6 +348,7 @@ export async function connect(): Promise<Client> {
   G.connectPromise = createClient();
   try {
     G.client = await G.connectPromise;
+    await ensureMediaSendPatch(G.client);
     console.log("[whatsapp] client created, waiting for QR or ready");
     return G.client;
   } catch (e) {
@@ -286,6 +379,7 @@ export function clearSocketIfClosed(): void {
   G.readyResolve = null;
   G.connectionStatus = "disconnected";
   G.currentQR = null;
+  G.mediaPatchApplied = false;
   void saveStoredQR(null);
 }
 
@@ -310,6 +404,151 @@ export async function sendToGroupWithRetry(groupJid: string, text: string): Prom
       throw e;
     }
   }
+}
+
+export async function sendImageToGroupWithRetry(
+  groupJid: string,
+  image: Buffer,
+  filename: string,
+  caption?: string
+): Promise<void> {
+  const safeCaption = caption?.trim() || undefined;
+
+  let c: Client;
+  try {
+    c = await getClientWhenReady();
+    await sendImageToGroup(groupJid, image, filename, safeCaption, c);
+  } catch (e) {
+    if (isConnectionError(e)) {
+      console.warn("[whatsapp] image send failed (connection error), retrying once:", e);
+      clearSocketIfClosed();
+      await connect();
+      c = await getClientWhenReady();
+      await sendImageToGroup(groupJid, image, filename, safeCaption, c);
+    } else {
+      throw e;
+    }
+  }
+}
+
+async function sendImageToGroup(
+  groupJid: string,
+  image: Buffer,
+  filename: string,
+  caption: string | undefined,
+  client: Client
+): Promise<void> {
+  const page = (client as Client & {
+    pupPage?: {
+      evaluate: <TArg, TResult>(fn: (arg: TArg) => Promise<TResult>, arg: TArg) => Promise<TResult>;
+    };
+  }).pupPage;
+
+  if (!page) {
+    throw new Error("WhatsApp page is not available.");
+  }
+
+  const media = new MessageMedia("image/png", image.toString("base64"), filename);
+
+  await page.evaluate(
+    async ({
+      groupJid,
+      media,
+      caption,
+    }: {
+      groupJid: string;
+      media: { mimetype: string; data: string; filename?: string | null };
+      caption?: string;
+    }) => {
+      const browserWindow = window as Window &
+        typeof globalThis & {
+          WWebJS: {
+            getChat: (chatId: string, options: { getAsModel: boolean }) => Promise<any>;
+            sendSeen: (chatId: string) => Promise<boolean>;
+            processMediaData: (
+              mediaInfo: { mimetype: string; data: string; filename?: string | null },
+              options: {
+                forceSticker: boolean;
+                forceGif: boolean;
+                forceVoice: boolean;
+                forceDocument: boolean;
+                forceMediaHd: boolean;
+                sendToChannel: boolean;
+                sendToStatus: boolean;
+              }
+            ) => Promise<any>;
+          };
+          Store: any;
+        };
+
+      const chat = await browserWindow.WWebJS.getChat(groupJid, { getAsModel: false });
+      if (!chat) {
+        throw new Error("Group not found");
+      }
+
+      await browserWindow.WWebJS.sendSeen(groupJid);
+
+      const mediaOptions = await browserWindow.WWebJS.processMediaData(media, {
+        forceSticker: false,
+        forceGif: false,
+        forceVoice: false,
+        forceDocument: false,
+        forceMediaHd: false,
+        sendToChannel: false,
+        sendToStatus: false,
+      });
+
+      mediaOptions.caption = caption;
+
+      const lidUser = browserWindow.Store.User.getMaybeMeLidUser();
+      const meUser = browserWindow.Store.User.getMaybeMePnUser();
+      let from = chat.id.isLid() ? lidUser : meUser;
+      let participant;
+
+      if (typeof chat.id?.isGroup === "function" && chat.id.isGroup()) {
+        from = chat.groupMetadata && chat.groupMetadata.isLidAddressingMode ? lidUser : meUser;
+        participant = browserWindow.Store.WidFactory.asUserWidOrThrow(from);
+      }
+
+      const newId = await browserWindow.Store.MsgKey.newId();
+      const newMsgKey = new browserWindow.Store.MsgKey({
+        from,
+        to: chat.id,
+        id: newId,
+        participant,
+        selfDir: "out",
+      });
+
+      const ephemeralFields = browserWindow.Store.EphemeralFields.getEphemeralFields(chat);
+      const message = {
+        id: newMsgKey,
+        ack: 0,
+        body: " ",
+        from,
+        to: chat.id,
+        local: true,
+        self: "out",
+        t: Math.floor(Date.now() / 1000),
+        isNewMsg: true,
+        type: mediaOptions.type ?? "image",
+        ...ephemeralFields,
+        ...mediaOptions,
+        ...(typeof mediaOptions.toJSON === "function" ? mediaOptions.toJSON() : {}),
+      };
+
+      const [msgPromise] = browserWindow.Store.SendMessage.addAndSendMsgToChat(chat, message);
+      await msgPromise;
+    },
+    {
+      groupJid,
+      media: {
+        mimetype: media.mimetype,
+        data: media.data,
+        filename: media.filename,
+      },
+      caption,
+    }
+  );
 }
 
 export async function sendComposing(groupJid: string, durationMs: number): Promise<void> {

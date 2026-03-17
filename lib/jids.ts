@@ -7,11 +7,13 @@ const JIDS_FILE = path.join(DATA_DIR, "jids.json");
 export interface StoredJids {
   appreciationGroupJid: string;
   escalationGroupJid: string;
+  birthdayGroupJid: string;
 }
 
 const defaults: StoredJids = {
   appreciationGroupJid: "",
   escalationGroupJid: "",
+  birthdayGroupJid: "",
 };
 
 export async function getJids(): Promise<StoredJids> {

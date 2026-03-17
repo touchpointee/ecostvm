@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { getConnectionStatus, getLastInitError } from "@/lib/whatsapp";
 import { getStoredQR } from "@/lib/whatsappQRStore";
+import { startBackgroundJobs } from "@/lib/backgroundJobs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+startBackgroundJobs();
 
 export async function GET() {
   const status = getConnectionStatus();

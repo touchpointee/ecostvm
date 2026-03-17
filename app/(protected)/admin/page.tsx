@@ -10,7 +10,9 @@ export default function AdminDashboardPage() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [appreciationJid, setAppreciationJid] = useState("");
   const [escalationJid, setEscalationJid] = useState("");
+  const [birthdayJid, setBirthdayJid] = useState("");
   const [savingJids, setSavingJids] = useState(false);
+  const [sendingBirthdayWishes, setSendingBirthdayWishes] = useState(false);
   const [fetchingGroups, setFetchingGroups] = useState(false);
   const [groupsList, setGroupsList] = useState<{ id: string; subject?: string }[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -65,9 +67,11 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       setAppreciationJid(data.appreciationGroupJid ?? "");
       setEscalationJid(data.escalationGroupJid ?? "");
+      setBirthdayJid(data.birthdayGroupJid ?? "");
     } catch {
       setAppreciationJid("");
       setEscalationJid("");
+      setBirthdayJid("");
     }
   }, []);
 
@@ -256,6 +260,7 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           appreciationGroupJid: appreciationJid.trim(),
           escalationGroupJid: escalationJid.trim(),
+          birthdayGroupJid: birthdayJid.trim(),
         }),
       });
       if (!res.ok) throw new Error("Save failed");
@@ -284,6 +289,33 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function handleSendBirthdayWishes() {
+    setSendingBirthdayWishes(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/birthdays/send", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to send birthday wishes.");
+      }
+
+      if (Array.isArray(data.errors) && data.errors.length > 0 && (data.sent ?? 0) === 0 && (data.skipped ?? 0) === 0) {
+        setMessage(data.errors.join(" | "));
+      } else if ((data.sent ?? 0) === 0 && (data.skipped ?? 0) === 0) {
+        setMessage("No birthdays found for today.");
+      } else {
+        const parts = [`Sent ${data.sent ?? 0}`, `skipped ${data.skipped ?? 0}`];
+        const extra =
+          Array.isArray(data.errors) && data.errors.length > 0 ? ` Errors: ${data.errors.join(" | ")}` : "";
+        setMessage(`Birthday wishes processed: ${parts.join(", ")}.${extra}`);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to send birthday wishes.");
+    } finally {
+      setSendingBirthdayWishes(false);
+    }
+  }
+
   async function handleRetry(feedbackId: string) {
     setRetryingId(feedbackId);
     setMessage(null);
@@ -307,7 +339,7 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen bg-white">
       <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-4 py-4 sm:px-6">
         <h1 className="text-lg font-semibold text-black">Dashboard</h1>
-        <p className="text-sm text-black/70">WhatsApp, feedback & group JIDs</p>
+        <p className="text-sm text-black/70">WhatsApp, feedback, birthday wishes & group JIDs</p>
       </header>
       <div className="p-4 sm:p-6">
         <div className="mx-auto max-w-4xl space-y-6 sm:space-y-8">
@@ -452,7 +484,7 @@ export default function AdminDashboardPage() {
 
           <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">
             <h2 className="text-lg font-semibold text-black">Group JIDs</h2>
-            <p className="mt-1 text-sm text-black/80">Set group JIDs for feedback. Use Fetch Groups to see IDs.</p>
+            <p className="mt-1 text-sm text-black/80">Set group JIDs for feedback and birthday wishes. Use Fetch Groups to see IDs.</p>
             <form onSubmit={handleSaveJids} className="mt-4 space-y-4 text-sm">
               <div>
                 <label htmlFor="appreciationJid" className="block font-medium text-black">Appreciation group JID</label>
@@ -476,6 +508,17 @@ export default function AdminDashboardPage() {
                   className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
                 />
               </div>
+              <div>
+                <label htmlFor="birthdayJid" className="block font-medium text-black">Birthday wishes group JID</label>
+                <input
+                  id="birthdayJid"
+                  type="text"
+                  value={birthdayJid}
+                  onChange={(e) => setBirthdayJid(e.target.value)}
+                  placeholder="123456789@g.us"
+                  className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+                />
+              </div>
               <button
                 type="submit"
                 disabled={savingJids}
@@ -484,6 +527,21 @@ export default function AdminDashboardPage() {
                 {savingJids ? "Saving…" : "Save JIDs"}
               </button>
             </form>
+          </section>
+
+          <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">
+            <h2 className="text-lg font-semibold text-black">Birthday wishes</h2>
+            <p className="mt-1 text-sm text-black/80">
+              The system now checks birthdays automatically and sends the greeting card to the birthday group once per member per day.
+            </p>
+            <button
+              type="button"
+              onClick={handleSendBirthdayWishes}
+              disabled={sendingBirthdayWishes}
+              className="mt-4 rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-70"
+            >
+              {sendingBirthdayWishes ? "Sending..." : "Send today's birthday wishes"}
+            </button>
           </section>
 
           <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">

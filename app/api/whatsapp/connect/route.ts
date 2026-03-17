@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { connect } from "@/lib/whatsapp";
+import { startBackgroundJobs } from "@/lib/backgroundJobs";
+
+startBackgroundJobs();
 
 export async function POST() {
   try {
