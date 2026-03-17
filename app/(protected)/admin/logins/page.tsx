@@ -125,7 +125,7 @@ export default function LoginsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-6 py-4">
+      <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold text-black">Members</h1>
@@ -152,7 +152,7 @@ export default function LoginsPage() {
           </a>
         </div>
       </header>
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="mx-auto max-w-7xl space-y-8">
           <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
             <section className="rounded-2xl border-2 border-black bg-white p-6 shadow-lg">
@@ -187,7 +187,7 @@ export default function LoginsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-black">Stored members</h2>
-                <p className="mt-1 text-sm text-black/80">Latest 1000 records from the portal database.</p>
+                <p className="mt-1 text-sm text-black/80">First 1000 records from the portal database, sorted by membership number ascending.</p>
               </div>
               <button onClick={fetchMembers} className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white">
                 Refresh
@@ -257,7 +257,7 @@ export default function LoginsPage() {
             className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border-2 border-black bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-6 py-4">
+            <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-4 py-4 sm:px-6">
               <div>
                 <h2 id="add-member-title" className="text-lg font-semibold text-black">Add member</h2>
                 <p className="text-sm text-black/70">Contact number is used for login access.</p>
@@ -274,7 +274,7 @@ export default function LoginsPage() {
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-black">Name</label>

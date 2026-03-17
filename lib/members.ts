@@ -126,6 +126,16 @@ function buildRegexFilter(value: string) {
   return { $regex: value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
 }
 
+async function findMemberByMembershipNumber(membershipNumber: string) {
+  const normalizedMembershipNumber = normalizeLooseText(membershipNumber);
+  if (!normalizedMembershipNumber) return null;
+
+  const collection = await membersCollection();
+  return collection.findOne({
+    membershipNumber: normalizedMembershipNumber,
+  });
+}
+
 export async function ensureMemberIndexes() {
   const collection = await membersCollection();
   await Promise.all([
@@ -144,12 +154,20 @@ export async function upsertMember(input: MemberInput): Promise<{ ok: boolean; e
     return { ok: false, error: "Enter a valid contact number with at least 10 digits." };
   }
 
+  const membershipNumber = normalizeLooseText(input.membershipNumber);
+  if (membershipNumber) {
+    const existingMember = await findMemberByMembershipNumber(membershipNumber);
+    if (existingMember && existingMember.phoneNumber !== phoneNumber) {
+      return { ok: false, error: "This membership number already exists." };
+    }
+  }
+
   const now = new Date();
   const payload = {
     phoneNumber,
     contactNumber: phoneNumber,
     name: normalizeLooseText(input.name),
-    membershipNumber: normalizeLooseText(input.membershipNumber),
+    membershipNumber,
     vehicleColor: normalizeLooseText(input.vehicleColor),
     vehicleNumber: normalizeLooseText(input.vehicleNumber).toUpperCase(),
     place: normalizeLooseText(input.place),
@@ -241,7 +259,6 @@ export async function listMembers(filters: MemberFilters = {}): Promise<MemberRe
 
   const filterMap: Array<[keyof MemberFilters, keyof MemberDoc]> = [
     ["name", "name"],
-    ["membershipNumber", "membershipNumber"],
     ["contactNumber", "phoneNumber"],
     ["vehicleNumber", "vehicleNumber"],
     ["vehicleColor", "vehicleColor"],
@@ -258,6 +275,11 @@ export async function listMembers(filters: MemberFilters = {}): Promise<MemberRe
     }
   }
 
+  const exactMembershipNumber = cleanText(filters.membershipNumber);
+  if (exactMembershipNumber) {
+    andFilters.push({ membershipNumber: normalizeLooseText(exactMembershipNumber) });
+  }
+
   if (andFilters.length === 1) {
     Object.assign(query, andFilters[0]);
   } else if (andFilters.length > 1) {
@@ -266,7 +288,8 @@ export async function listMembers(filters: MemberFilters = {}): Promise<MemberRe
 
   const docs = await collection
     .find(query)
-    .sort({ updatedAt: -1, name: 1, phoneNumber: 1 })
+    .collation({ locale: "en", numericOrdering: true })
+    .sort({ membershipNumber: 1, name: 1, phoneNumber: 1 })
     .limit(1000)
     .toArray();
 

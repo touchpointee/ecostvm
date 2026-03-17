@@ -305,12 +305,12 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-6 py-4">
+      <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-4 py-4 sm:px-6">
         <h1 className="text-lg font-semibold text-black">Dashboard</h1>
         <p className="text-sm text-black/70">WhatsApp, feedback & group JIDs</p>
       </header>
-      <div className="p-6">
-        <div className="mx-auto max-w-4xl space-y-8">
+      <div className="p-4 sm:p-6">
+        <div className="mx-auto max-w-4xl space-y-6 sm:space-y-8">
           <section className="rounded-2xl border-2 border-black bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-black">WhatsApp connection</h2>
             <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -366,11 +366,11 @@ export default function AdminDashboardPage() {
                     Connection failed: {statusError}.
                   </div>
                 )}
-                <div className="inline-block rounded-lg border-2 border-black bg-white p-4">
+                <div className="inline-block rounded-lg border-2 border-black bg-white p-3 sm:p-4">
                   {qrDataUrl ? (
-                    <img src={qrDataUrl} alt="WhatsApp QR" className="h-64 w-64" />
+                    <img src={qrDataUrl} alt="WhatsApp QR" className="h-56 w-56 sm:h-64 sm:w-64" />
                   ) : (
-                    <div className="flex h-64 w-64 flex-col items-center justify-center rounded border-2 border-dashed border-black text-center text-black/70">
+                    <div className="flex h-56 w-56 flex-col items-center justify-center rounded border-2 border-dashed border-black text-center text-black/70 sm:h-64 sm:w-64">
                       <span>{status === "Connecting" ? "Waiting for QR…" : "No QR yet"}</span>
                       {qrHint && <span className="mt-2 max-w-[240px] text-xs">{qrHint}</span>}
                     </div>
@@ -510,7 +510,7 @@ export default function AdminDashboardPage() {
                 className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-2xl border-2 border-black bg-white shadow-xl"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-6 py-4">
+                <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-4 py-4 sm:px-6">
                   <h2 id="groups-modal-title" className="text-lg font-semibold text-black">
                     Fetch groups
                   </h2>
@@ -525,7 +525,7 @@ export default function AdminDashboardPage() {
                     </svg>
                   </button>
                 </div>
-                <div className="max-h-[60vh] overflow-y-auto p-6">
+                <div className="max-h-[60vh] overflow-y-auto p-4 sm:p-6">
                   <p className="mb-4 text-sm text-black/80">Load WhatsApp groups. IDs appear below and in server console.</p>
                   <button
                     type="button"

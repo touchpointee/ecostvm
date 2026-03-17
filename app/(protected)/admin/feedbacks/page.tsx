@@ -25,12 +25,20 @@ export default function FeedbacksPage() {
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [nameFilter, setNameFilter] = useState("");
+  const [advisorFilter, setAdvisorFilter] = useState("");
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (filters?: { name?: string; advisor?: string }) => {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/feedback/list?limit=500", { cache: "no-store" });
+      const params = new URLSearchParams({ limit: "500" });
+      const name = filters?.name?.trim() ?? "";
+      const advisor = filters?.advisor?.trim() ?? "";
+      if (name) params.set("name", name);
+      if (advisor) params.set("advisor", advisor);
+
+      const res = await fetch(`/api/feedback/list?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load feedbacks");
       setItems(data.items ?? []);
@@ -46,6 +54,16 @@ export default function FeedbacksPage() {
     fetchItems();
   }, [fetchItems]);
 
+  function handleSearch() {
+    fetchItems({ name: nameFilter, advisor: advisorFilter });
+  }
+
+  function handleClearFilters() {
+    setNameFilter("");
+    setAdvisorFilter("");
+    fetchItems({ name: "", advisor: "" });
+  }
+
   async function handleRetry(feedbackId: string) {
     setRetryingId(feedbackId);
     setMessage(null);
@@ -57,7 +75,7 @@ export default function FeedbacksPage() {
       } else {
         setMessage({ type: "success", text: "WhatsApp notification sent successfully." });
       }
-      await fetchItems();
+      await fetchItems({ name: nameFilter, advisor: advisorFilter });
     } catch {
       setMessage({ type: "error", text: "Retry failed due to a network error." });
     } finally {
@@ -67,7 +85,7 @@ export default function FeedbacksPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-6 py-4">
+      <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold text-black">Feedbacks</h1>
@@ -84,8 +102,41 @@ export default function FeedbacksPage() {
         </div>
       </header>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="mx-auto max-w-7xl space-y-6">
+          <section className="rounded-2xl border-2 border-black bg-white p-6 shadow-lg">
+            <div className="grid gap-4 md:grid-cols-2">
+              <input
+                value={nameFilter}
+                onChange={(e) => setNameFilter(e.target.value)}
+                placeholder="Search by customer name"
+                className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              />
+              <input
+                value={advisorFilter}
+                onChange={(e) => setAdvisorFilter(e.target.value)}
+                placeholder="Search by service advisor"
+                className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleSearch}
+                className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white"
+              >
+                Clear filters
+              </button>
+            </div>
+          </section>
+
           <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-black">All feedback records</h2>

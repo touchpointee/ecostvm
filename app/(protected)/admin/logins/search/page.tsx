@@ -113,11 +113,11 @@ export default function MemberSearchPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-6 py-4">
+      <header className="sticky top-0 z-30 border-b-2 border-black bg-white px-4 py-4 sm:px-6">
         <h1 className="text-lg font-semibold text-black">Member Search</h1>
         <p className="text-sm text-black/70">Search members with all available filters.</p>
       </header>
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="mx-auto max-w-7xl space-y-8">
           <section className="rounded-2xl border-2 border-black bg-white p-6 shadow-lg">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -230,7 +230,7 @@ export default function MemberSearchPage() {
             className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border-2 border-black bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-6 py-4">
+            <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-4 py-4 sm:px-6">
               <div>
                 <h2 id="edit-member-title" className="text-lg font-semibold text-black">Edit member</h2>
                 <p className="text-sm text-black/70">Update member details and save changes.</p>
@@ -247,7 +247,7 @@ export default function MemberSearchPage() {
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label htmlFor="edit-name" className="block text-sm font-medium text-black">Name</label>

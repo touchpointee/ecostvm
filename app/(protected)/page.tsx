@@ -163,8 +163,8 @@ export default function FeedbackPage() {
                 required
               >
                 <option value="">Select group</option>
-                <option value="Appreciation">Appreciation group</option>
-                <option value="Escalation">Escalation group</option>
+                <option value="Appreciation">Appreciation</option>
+                <option value="Escalation">Escalation</option>
               </select>
             </div>
             <div>
