@@ -296,6 +296,15 @@ export async function listMembers(filters: MemberFilters = {}): Promise<MemberRe
   return docs.map(mapMemberDoc);
 }
 
+export async function getMemberByPhoneNumber(phoneNumber: string): Promise<MemberRecord | null> {
+  const normalized = normalizePhoneNumber(phoneNumber);
+  if (!normalized) return null;
+
+  const collection = await membersCollection();
+  const member = await collection.findOne({ phoneNumber: normalized });
+  return member ? mapMemberDoc(member) : null;
+}
+
 export async function removeMember(phoneNumber: string): Promise<{ ok: boolean; error?: string }> {
   const normalized = normalizePhoneNumber(phoneNumber);
   if (!normalized) return { ok: false, error: "Invalid number" };

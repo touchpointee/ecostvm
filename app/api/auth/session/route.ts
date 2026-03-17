@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { getMemberByPhoneNumber } from "@/lib/members";
 
 export async function GET() {
   try {
@@ -7,7 +8,17 @@ export async function GET() {
     if (!session) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
-    return NextResponse.json({ phoneNumber: session.phoneNumber });
+    const member = await getMemberByPhoneNumber(session.phoneNumber);
+    return NextResponse.json({
+      phoneNumber: session.phoneNumber,
+      member: member
+        ? {
+            name: member.name,
+            contactNumber: member.contactNumber,
+            vehicleNumber: member.vehicleNumber,
+          }
+        : null,
+    });
   } catch {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }

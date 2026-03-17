@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
@@ -16,6 +16,41 @@ export default function FeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [autofillValues, setAutofillValues] = useState({
+    name: "",
+    contactNumber: "",
+    vehicleNumber: "",
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadMemberProfile() {
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || !data.member || cancelled) return;
+
+        const nextValues = {
+          name: data.member.name ?? "",
+          contactNumber: data.member.contactNumber ?? data.phoneNumber ?? "",
+          vehicleNumber: data.member.vehicleNumber ?? "",
+        };
+
+        setAutofillValues(nextValues);
+        setName(nextValues.name);
+        setContactNumber(nextValues.contactNumber);
+        setVehicleNumber(nextValues.vehicleNumber);
+      } catch {
+        // Keep the form usable even if autofill fails.
+      }
+    }
+
+    loadMemberProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,9 +82,9 @@ export default function FeedbackPage() {
       }
       setMessage({ type: "success", text: "Thank you! Your feedback has been submitted." });
       setSuccessModalOpen(true);
-      setName("");
-      setContactNumber("");
-      setVehicleNumber("");
+      setName(autofillValues.name);
+      setContactNumber(autofillValues.contactNumber);
+      setVehicleNumber(autofillValues.vehicleNumber);
       setServiceDate("");
       setAdvisor("");
       setPickupDrop("");
