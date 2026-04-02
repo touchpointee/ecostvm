@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const ADMIN_NUMBER = "1234567890";
-
 export default function AdminLoginPage() {
-  const [number, setNumber] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -14,13 +13,8 @@ export default function AdminLoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    const digits = number.replace(/\D/g, "").trim();
-    if (digits.length === 0) {
-      setError("Enter the admin phone number.");
-      return;
-    }
-    if (digits !== ADMIN_NUMBER) {
-      setError("Invalid admin number.");
+    if (!username.trim() || !password.trim()) {
+      setError("Enter username and password.");
       return;
     }
     setLoading(true);
@@ -28,7 +22,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/auth/admin-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number: digits }),
+        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -49,22 +43,35 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm rounded-2xl border-2 border-black bg-white p-6 shadow-lg">
         <h1 className="text-xl font-bold text-black">Admin Login</h1>
         <p className="mt-1 text-sm text-black/70">
-          Enter the admin phone number to access the portal.
+          Enter your credentials to access the portal.
         </p>
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label htmlFor="adminNumber" className="block text-sm font-medium text-black">
-              Admin phone number
+            <label htmlFor="adminUsername" className="block text-sm font-medium text-black">
+              Username
             </label>
             <input
-              id="adminNumber"
-              type="tel"
-              inputMode="numeric"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-              placeholder="1234567890"
+              id="adminUsername"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username"
               className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
               autoFocus
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="adminPassword" className="block text-sm font-medium text-black">
+              Password
+            </label>
+            <input
+              id="adminPassword"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
               required
             />
           </div>
@@ -81,4 +88,3 @@ export default function AdminLoginPage() {
     </div>
   );
 }
-

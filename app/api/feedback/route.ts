@@ -40,14 +40,16 @@ function formatGroupMessage(
   return lines.join("\n");
 }
 
-function formatCustomerMessage(feedbackId: string, name: string): string {
-  const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
+function formatCustomerMessage(feedbackId: string, name: string, trackingCode: string): string {
+  const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}?token=${trackingCode}`;
   return [
     `🚗 *EcoSport TVM – Feedback Received*`,
     "",
     `Hi ${name}! Thank you for your feedback.`,
     "",
-    `You can track the status of your concern and add a review here:`,
+    `Your reference code: *${trackingCode}*`,
+    "",
+    `Track your concern and mark it resolved here:`,
     url,
     "",
     `Our team will attend to it shortly. 🙏`,
@@ -93,6 +95,7 @@ export async function POST(request: NextRequest) {
 
     const db = await getDb();
     const now = new Date();
+    const trackingCode = String(Math.floor(10000 + Math.random() * 90000));
     const insertResult = await db.collection("feedback").insertOne({
       name: String(name).trim(),
       contactNumber: contactNumber != null ? String(contactNumber).trim() : undefined,
@@ -104,6 +107,8 @@ export async function POST(request: NextRequest) {
       type: String(type),
       status: "Open",
       review: null,
+      trackingCode,
+      resolvedByCustomer: false,
       createdAt: now,
       whatsappSent: false,
       whatsappError: null,
@@ -160,7 +165,8 @@ export async function POST(request: NextRequest) {
     if (customerPhone) {
       const customerText = formatCustomerMessage(
         feedbackId,
-        String(name).trim()
+        String(name).trim(),
+        trackingCode
       );
       try {
         await sendDirectMessageWithRetry(customerPhone, customerText);
@@ -190,6 +196,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       id: feedbackId,
+      trackingCode,
       whatsappSent,
       whatsappError,
       customerWhatsappSent,

@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongo";
-import ReviewForm from "./ReviewForm";
+import CustomerActions from "./CustomerActions";
 
 type FeedbackStatus = "Open" | "In Progress" | "Resolved" | "Closed";
 
@@ -27,7 +27,7 @@ const STATUS_META: Record<
     bg: "bg-green-50",
     text: "text-green-800",
     dot: "bg-green-500",
-    description: "Your concern has been resolved. Please rate your experience.",
+    description: "Your concern has been resolved. Thank you for your patience.",
   },
   Closed: {
     label: "Closed",
@@ -42,14 +42,23 @@ const STAR_LABELS = ["", "Poor", "Fair", "Good", "Very good", "Excellent"];
 
 export default async function FeedbackDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }> | { id: string };
+  searchParams: Promise<{ token?: string }> | { token?: string };
 }) {
   const resolvedParams = await Promise.resolve(params);
+  const resolvedSearch = await Promise.resolve(searchParams);
   const id = String(resolvedParams.id ?? "").trim();
+  const token = String(resolvedSearch?.token ?? "").trim();
 
   if (!ObjectId.isValid(id)) {
-    return <ErrorPage title="Invalid link" message="The feedback ID in this link is not valid." />;
+    return (
+      <ErrorPage
+        title="Invalid link"
+        message="The feedback ID in this link is not valid."
+      />
+    );
   }
 
   const db = await getDb();
@@ -65,6 +74,9 @@ export default async function FeedbackDetailPage({
       />
     );
   }
+
+  const isCustomerView =
+    token.length > 0 && token === String(feedback.trackingCode ?? "");
 
   const status = (feedback.status ?? "Open") as FeedbackStatus;
   const meta = STATUS_META[status] ?? STATUS_META["Open"];
@@ -107,14 +119,14 @@ export default async function FeedbackDetailPage({
             Service Feedback
           </h1>
           <p className="mt-1 text-sm text-black/60">
-            View your feedback details, current status, and submit a review.
+            {isCustomerView
+              ? "View your feedback details and update the status below."
+              : "View feedback details and customer review."}
           </p>
         </div>
 
         {/* Status card */}
-        <div
-          className={`rounded-2xl border-2 border-black p-5 ${meta.bg}`}
-        >
+        <div className={`rounded-2xl border-2 border-black p-5 ${meta.bg}`}>
           <div className="flex items-center gap-2">
             <span
               className={`inline-block h-2.5 w-2.5 rounded-full ${meta.dot}`}
@@ -155,10 +167,10 @@ export default async function FeedbackDetailPage({
           ))}
         </div>
 
-        {/* Review section */}
-        {review ? (
+        {/* Review section (shown in both views if review exists) */}
+        {review && (
           <div className="rounded-2xl border-2 border-black bg-white p-6">
-            <h2 className="text-base font-bold text-black">Your review</h2>
+            <h2 className="text-base font-bold text-black">Customer review</h2>
             <div className="mt-3 flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
                 <span
@@ -188,8 +200,15 @@ export default async function FeedbackDetailPage({
               })}
             </p>
           </div>
-        ) : (
-          <ReviewForm feedbackId={id} />
+        )}
+
+        {/* Customer-only: resolve button (only if no review yet) */}
+        {isCustomerView && !review && (
+          <CustomerActions
+            feedbackId={id}
+            token={token}
+            resolvedByCustomer={!!feedback.resolvedByCustomer}
+          />
         )}
       </div>
     </div>

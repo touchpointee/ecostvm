@@ -1,38 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/mongo";
 
+const ADMIN_USERNAME = "Ecostvm";
+const ADMIN_PASSWORD = "Hashmi6676";
 const ADMIN_COOKIE = "ecostvm_admin";
-const ADMIN_COLLECTION = "admin_logins";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const raw = body?.number ?? body?.phoneNumber ?? "";
-    const digits = String(raw).replace(/\D/g, "").trim();
+    const username = String(body?.username ?? "").trim();
+    const password = String(body?.password ?? "").trim();
 
-    if (!digits) {
+    if (!username || !password) {
       return NextResponse.json(
-        { error: "Enter admin phone number." },
+        { error: "Enter username and password." },
         { status: 400 }
       );
     }
 
-    const db = await getDb();
-    const coll = db.collection<{ phoneNumber: string }>(ADMIN_COLLECTION);
-
-    const existingCount = await coll.countDocuments({});
-
-    // If no admin exists yet, first successful login number becomes admin.
-    if (existingCount === 0) {
-      await coll.insertOne({ phoneNumber: digits });
-    } else {
-      const admin = await coll.findOne({ phoneNumber: digits });
-      if (!admin) {
-        return NextResponse.json(
-          { error: "Invalid admin number." },
-          { status: 401 }
-        );
-      }
+    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+      return NextResponse.json(
+        { error: "Invalid username or password." },
+        { status: 401 }
+      );
     }
 
     const res = NextResponse.json({ success: true });
@@ -52,4 +41,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

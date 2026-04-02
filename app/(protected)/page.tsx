@@ -16,6 +16,7 @@ export default function FeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [submittedCode, setSubmittedCode] = useState("");
   const [autofillValues, setAutofillValues] = useState({
     name: "",
     contactNumber: "",
@@ -103,6 +104,7 @@ export default function FeedbackPage() {
         setMessage({ type: "error", text: data.error || "Failed to submit feedback." });
         return;
       }
+      setSubmittedCode(data.trackingCode ?? "");
       setMessage({ type: "success", text: "Thank you! Your feedback has been submitted." });
       setSuccessModalOpen(true);
       setName(autofillValues.name);
@@ -299,18 +301,40 @@ export default function FeedbackPage() {
             className="w-full max-w-md rounded-2xl border-2 border-black bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="feedback-success-title" className="text-xl font-semibold text-black">
-              Thank you!
-            </h2>
-            <p className="mt-2 text-sm text-black/80">
-              Your feedback has been submitted.
+            <div className="text-center">
+              <div className="text-4xl">🙏</div>
+              <h2 id="feedback-success-title" className="mt-3 text-xl font-bold text-black">
+                Feedback Submitted!
+              </h2>
+              <p className="mt-1 text-sm text-black/70">
+                Your concern has been recorded successfully.
+              </p>
+            </div>
+
+            {submittedCode && (
+              <div className="mt-5 rounded-xl border-2 border-black bg-yellow-50 p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-widest text-black/50">
+                  Your Reference Code
+                </p>
+                <p className="mt-2 text-4xl font-bold tracking-[0.3em] text-black">
+                  {submittedCode}
+                </p>
+                <p className="mt-2 text-xs text-black/50">
+                  Save this code to track your feedback
+                </p>
+              </div>
+            )}
+
+            <p className="mt-4 text-center text-xs text-black/50">
+              A tracking link has been sent to your WhatsApp.
             </p>
+
             <button
               type="button"
               onClick={() => setSuccessModalOpen(false)}
-              className="mt-6 w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black hover:bg-yellow-300"
+              className="mt-5 w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
             >
-              OK
+              Done
             </button>
           </div>
         </div>

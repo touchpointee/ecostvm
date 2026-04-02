@@ -15,8 +15,10 @@ const VALID_STATUSES: FeedbackStatus[] = [
 const PUBLIC_FEEDBACK_BASE =
   process.env.PUBLIC_FEEDBACK_URL || "https://example.com/feedback";
 
-function formatResolvedDM(feedbackId: string, name: string): string {
-  const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
+function formatResolvedDM(feedbackId: string, name: string, trackingCode?: string): string {
+  const url = trackingCode
+    ? `${PUBLIC_FEEDBACK_BASE}/${feedbackId}?token=${trackingCode}`
+    : `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
   return [
     `🚗 *EcoSport TVM – Issue Resolved*`,
     "",
@@ -132,8 +134,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ? String(existing.contactNumber).trim()
         : "";
       const name = existing.name ? String(existing.name).trim() : "Customer";
+      const trackingCode = existing.trackingCode
+        ? String(existing.trackingCode)
+        : undefined;
       if (phone) {
-        sendDirectMessageWithRetry(phone, formatResolvedDM(id, name)).catch(
+        sendDirectMessageWithRetry(phone, formatResolvedDM(id, name, trackingCode)).catch(
           (e) => console.error("[api/feedback/:id PATCH] resolved DM failed", e)
         );
       }

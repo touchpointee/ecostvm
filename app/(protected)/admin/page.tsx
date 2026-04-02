@@ -12,6 +12,7 @@ export default function AdminDashboardPage() {
   const [escalationJid, setEscalationJid] = useState("");
   const [birthdayJid, setBirthdayJid] = useState("");
   const [savingJids, setSavingJids] = useState(false);
+  const [jidsSaved, setJidsSaved] = useState(false);
   const [sendingBirthdayWishes, setSendingBirthdayWishes] = useState(false);
   const [fetchingGroups, setFetchingGroups] = useState(false);
   const [groupsList, setGroupsList] = useState<{ id: string; subject?: string }[]>([]);
@@ -65,9 +66,13 @@ export default function AdminDashboardPage() {
     try {
       const res = await fetch("/api/whatsapp/jids");
       const data = await res.json();
-      setAppreciationJid(data.appreciationGroupJid ?? "");
-      setEscalationJid(data.escalationGroupJid ?? "");
-      setBirthdayJid(data.birthdayGroupJid ?? "");
+      const a = data.appreciationGroupJid ?? "";
+      const e = data.escalationGroupJid ?? "";
+      const b = data.birthdayGroupJid ?? "";
+      setAppreciationJid(a);
+      setEscalationJid(e);
+      setBirthdayJid(b);
+      if (a || e || b) setJidsSaved(true);
     } catch {
       setAppreciationJid("");
       setEscalationJid("");
@@ -264,6 +269,7 @@ export default function AdminDashboardPage() {
         }),
       });
       if (!res.ok) throw new Error("Save failed");
+      setJidsSaved(true);
       setMessage("Group JIDs saved.");
     } catch {
       setMessage("Failed to save JIDs.");
@@ -483,50 +489,98 @@ export default function AdminDashboardPage() {
           </section>
 
           <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">
-            <h2 className="text-lg font-semibold text-black">Group JIDs</h2>
-            <p className="mt-1 text-sm text-black/80">Set group JIDs for feedback and birthday wishes. Use Fetch Groups to see IDs.</p>
-            <form onSubmit={handleSaveJids} className="mt-4 space-y-4 text-sm">
+            <div className="flex items-center justify-between">
               <div>
-                <label htmlFor="appreciationJid" className="block font-medium text-black">Appreciation group JID</label>
-                <input
-                  id="appreciationJid"
-                  type="text"
-                  value={appreciationJid}
-                  onChange={(e) => setAppreciationJid(e.target.value)}
-                  placeholder="123456789@g.us"
-                  className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
-                />
+                <h2 className="text-lg font-semibold text-black">Group JIDs</h2>
+                <p className="mt-1 text-sm text-black/80">Set group JIDs for feedback and birthday wishes. Use Fetch Groups to see IDs.</p>
               </div>
-              <div>
-                <label htmlFor="escalationJid" className="block font-medium text-black">Escalation group JID</label>
-                <input
-                  id="escalationJid"
-                  type="text"
-                  value={escalationJid}
-                  onChange={(e) => setEscalationJid(e.target.value)}
-                  placeholder="123456789@g.us"
-                  className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
-                />
+              {jidsSaved && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800 ring-2 ring-green-400">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Saved
+                </span>
+              )}
+            </div>
+
+            {jidsSaved ? (
+              <div className="mt-4 space-y-3 text-sm">
+                {[
+                  { label: "Appreciation group JID", value: appreciationJid },
+                  { label: "Escalation group JID", value: escalationJid },
+                  { label: "Birthday wishes group JID", value: birthdayJid },
+                ].map(({ label, value }) => (
+                  <div key={label} className="rounded-lg border-2 border-black bg-white px-3 py-2.5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-black/50">{label}</p>
+                    <p className="mt-1 break-all font-mono text-sm text-black">
+                      {value || <span className="text-black/30 font-sans not-italic">Not set</span>}
+                    </p>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setJidsSaved(false)}
+                  className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white"
+                >
+                  Edit
+                </button>
               </div>
-              <div>
-                <label htmlFor="birthdayJid" className="block font-medium text-black">Birthday wishes group JID</label>
-                <input
-                  id="birthdayJid"
-                  type="text"
-                  value={birthdayJid}
-                  onChange={(e) => setBirthdayJid(e.target.value)}
-                  placeholder="123456789@g.us"
-                  className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={savingJids}
-                className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-70"
-              >
-                {savingJids ? "Saving…" : "Save JIDs"}
-              </button>
-            </form>
+            ) : (
+              <form onSubmit={handleSaveJids} className="mt-4 space-y-4 text-sm">
+                <div>
+                  <label htmlFor="appreciationJid" className="block font-medium text-black">Appreciation group JID</label>
+                  <input
+                    id="appreciationJid"
+                    type="text"
+                    value={appreciationJid}
+                    onChange={(e) => setAppreciationJid(e.target.value)}
+                    placeholder="123456789@g.us"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="escalationJid" className="block font-medium text-black">Escalation group JID</label>
+                  <input
+                    id="escalationJid"
+                    type="text"
+                    value={escalationJid}
+                    onChange={(e) => setEscalationJid(e.target.value)}
+                    placeholder="123456789@g.us"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="birthdayJid" className="block font-medium text-black">Birthday wishes group JID</label>
+                  <input
+                    id="birthdayJid"
+                    type="text"
+                    value={birthdayJid}
+                    onChange={(e) => setBirthdayJid(e.target.value)}
+                    placeholder="123456789@g.us"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={savingJids}
+                    className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300 disabled:opacity-70"
+                  >
+                    {savingJids ? "Saving…" : "Save JIDs"}
+                  </button>
+                  {(appreciationJid || escalationJid || birthdayJid) && (
+                    <button
+                      type="button"
+                      onClick={() => setJidsSaved(true)}
+                      className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
           </section>
 
           <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">
