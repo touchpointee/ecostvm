@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/mongo";
 import { Filter, ObjectId } from "mongodb";
 
+type FeedbackReview = {
+  rating: number;
+  comment: string;
+  submittedAt: Date;
+};
+
 type FeedbackDoc = {
   _id: ObjectId;
   name?: string;
@@ -13,10 +19,15 @@ type FeedbackDoc = {
   concerns?: string;
   type?: string;
   heading?: string;
+  status?: string;
+  review?: FeedbackReview | null;
   createdAt?: Date | null;
   whatsappSent?: boolean;
   whatsappError?: string | null;
   attempts?: number;
+  customerWhatsappSent?: boolean;
+  customerWhatsappError?: string | null;
+  customerWhatsappAttempts?: number;
 };
 
 function escapeRegex(value: string) {
@@ -27,22 +38,26 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const limitParam = Number(searchParams.get("limit") ?? "200");
-    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 1000) : 200;
+    const limit = Number.isFinite(limitParam)
+      ? Math.min(Math.max(limitParam, 1), 1000)
+      : 200;
     const name = searchParams.get("name")?.trim() ?? "";
     const advisor = searchParams.get("advisor")?.trim() ?? "";
+    const status = searchParams.get("status")?.trim() ?? "";
+
     const query: Filter<FeedbackDoc> = {};
     const andFilters: Filter<FeedbackDoc>[] = [];
 
     if (name) {
-      andFilters.push({
-        name: { $regex: escapeRegex(name), $options: "i" },
-      });
+      andFilters.push({ name: { $regex: escapeRegex(name), $options: "i" } });
     }
-
     if (advisor) {
       andFilters.push({
         advisor: { $regex: escapeRegex(advisor), $options: "i" },
       });
+    }
+    if (status) {
+      andFilters.push({ status });
     }
 
     if (andFilters.length === 1) {
@@ -70,19 +85,31 @@ export async function GET(request: NextRequest) {
       concerns: doc.concerns ?? "",
       type: doc.type ?? "",
       heading: doc.heading ?? "",
+      status: doc.status ?? "Open",
+      review: doc.review
+        ? {
+            rating: doc.review.rating,
+            comment: doc.review.comment,
+            submittedAt: doc.review.submittedAt,
+          }
+        : null,
       createdAt: doc.createdAt ?? null,
       whatsappSent: doc.whatsappSent ?? false,
       whatsappError: doc.whatsappError ?? null,
       attempts: doc.attempts ?? 0,
+      customerWhatsappSent: doc.customerWhatsappSent ?? false,
+      customerWhatsappError: doc.customerWhatsappError ?? null,
     }));
 
     return NextResponse.json({ items: results });
   } catch (e) {
     console.error("[api/feedback/list]", e);
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Failed to load feedback list" },
+      {
+        error:
+          e instanceof Error ? e.message : "Failed to load feedback list",
+      },
       { status: 500 }
     );
   }
 }
-

@@ -1,26 +1,10 @@
-# whatsapp-web.js needs a real browser. On Ubuntu 22+, apt "chromium-browser" is a
-# snap stub that fails in Docker. So we let Puppeteer download Chromium at build time
-# and install only the libs needed for it to run.
+# Baileys requires ffmpeg (media processing) and libvips (sharp / birthday card rendering).
+# No Chromium or Puppeteer libraries are needed.
 [phases.setup]
 aptPkgs = [
-  "libnss3",
-  "libatk-bridge2.0-0",
-  "libdrm2",
-  "libgbm1",
-  "libasound2t64",
-  "libx11-xcb1",
-  "libxcomposite1",
-  "libxdamage1",
-  "libxrandr2",
-  "libxss1",
-  "libxtst6",
-  "fonts-liberation",
-  "libappindicator3-1",
-  "xdg-utils"
+  "ffmpeg",
+  "libvips-dev"
 ]
-
-# Do NOT set PUPPETEER_SKIP_CHROMIUM_DOWNLOAD – Puppeteer will download Chromium
-# during npm install so we have a real binary that works in Docker.
 
 [phases.build]
 cmds = ["npm run build"]

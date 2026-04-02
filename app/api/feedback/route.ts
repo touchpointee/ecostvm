@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJids } from "@/lib/jids";
-import { connect, sendComposing, sendToGroupWithRetry } from "@/lib/whatsapp";
+import {
+  connect,
+  sendComposing,
+  sendToGroupWithRetry,
+  sendDirectMessageWithRetry,
+} from "@/lib/whatsapp";
 import { getDb } from "@/lib/mongo";
 import { startBackgroundJobs } from "@/lib/backgroundJobs";
 
@@ -8,7 +13,7 @@ const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
   process.env.PUBLIC_FEEDBACK_URL || "https://example.com/feedback";
 
-function formatMessage(
+function formatGroupMessage(
   feedbackId: string,
   details: {
     name?: string;
@@ -17,7 +22,6 @@ function formatMessage(
     serviceDate?: string;
     advisor?: string;
     pickupDrop?: string;
-    concerns?: string;
   }
 ): string {
   const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
@@ -30,11 +34,24 @@ function formatMessage(
     details.serviceDate ? `Service date: ${details.serviceDate}` : undefined,
     details.advisor ? `Advisor: ${details.advisor}` : undefined,
     details.pickupDrop ? `Pickup / drop: ${details.pickupDrop}` : undefined,
-    details.concerns ? `Service feedback / concerns: ${details.concerns}` : undefined,
     "",
     `View full feedback: ${url}`,
   ].filter((line) => line !== undefined) as string[];
   return lines.join("\n");
+}
+
+function formatCustomerMessage(feedbackId: string, name: string): string {
+  const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
+  return [
+    `🚗 *EcoSport TVM – Feedback Received*`,
+    "",
+    `Hi ${name}! Thank you for your feedback.`,
+    "",
+    `You can track the status of your concern and add a review here:`,
+    url,
+    "",
+    `Our team will attend to it shortly. 🙏`,
+  ].join("\n");
 }
 
 function randomDelay(minMs: number, maxMs: number): Promise<void> {
@@ -57,11 +74,12 @@ export async function POST(request: NextRequest) {
       concerns,
       type,
     } = body;
-    if (!name || !contactNumber || !vehicleNumber || !serviceDate || !advisor || !pickupDrop || !concerns || !type) {
+
+    if (!name || !vehicleNumber || !serviceDate || !concerns || !type) {
       return NextResponse.json(
         {
           error:
-            "Missing required fields.",
+            "Missing required fields: name, vehicleNumber, serviceDate, concerns, type (Appreciation/Escalation).",
         },
         { status: 400 }
       );
@@ -72,21 +90,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!/^[a-zA-Z\s]+$/.test(String(name))) {
-      return NextResponse.json({ error: "Name should only contain letters and spaces." }, { status: 400 });
-    }
-    if (!/^\d{10}$/.test(String(contactNumber))) {
-       return NextResponse.json({ error: "Contact number must be exactly 10 digits." }, { status: 400 });
-    }
-    if (!/^[A-Za-z]{2}[ -]?[0-9]{1,2}[ -]?[A-Za-z]{0,2}[ -]?[0-9]{4}$/.test(String(vehicleNumber)) && !/^[0-9]{2}[ -]?[Bb][Hh][ -]?[0-9]{4}[ -]?[A-Za-z]{1,2}$/.test(String(vehicleNumber))) {
-       return NextResponse.json({ error: "Invalid vehicle number format." }, { status: 400 });
-    }
-    const maxDate = new Date().toISOString().split('T')[0];
-    if (String(serviceDate) > maxDate) {
-      return NextResponse.json({ error: "Service date cannot be in the future." }, { status: 400 });
-    }
 
-    // 1. Persist feedback in MongoDB
     const db = await getDb();
     const now = new Date();
     const insertResult = await db.collection("feedback").insertOne({
@@ -98,44 +102,76 @@ export async function POST(request: NextRequest) {
       pickupDrop: pickupDrop != null ? String(pickupDrop) : undefined,
       concerns: String(concerns).trim(),
       type: String(type),
+      status: "Open",
+      review: null,
       createdAt: now,
       whatsappSent: false,
       whatsappError: null,
       attempts: 0,
+      customerWhatsappSent: false,
+      customerWhatsappError: null,
+      customerWhatsappAttempts: 0,
     });
 
-    // 2. Route to appropriate WhatsApp group (best-effort only)
+    const feedbackId = String(insertResult.insertedId);
+
+    // ── Send to admin WhatsApp group (best-effort) ──────────────────────────
     const jids = await getJids();
     const groupJid =
-      type === "Escalation" ? jids.escalationGroupJid : jids.appreciationGroupJid || jids.escalationGroupJid;
+      type === "Escalation"
+        ? jids.escalationGroupJid
+        : jids.appreciationGroupJid || jids.escalationGroupJid;
+
     let whatsappSent = false;
     let whatsappError: string | null = null;
 
     if (groupJid?.trim()) {
-      const text = formatMessage(String(insertResult.insertedId), {
+      const text = formatGroupMessage(feedbackId, {
         name,
         contactNumber,
         vehicleNumber,
         serviceDate,
         advisor,
         pickupDrop,
-        concerns,
       });
-
       try {
-        const socket = await connect();
+        await connect();
         await sendComposing(groupJid.trim(), 3000);
         await randomDelay(1000, 3000);
         await sendToGroupWithRetry(groupJid.trim(), text);
         whatsappSent = true;
       } catch (err) {
-        console.error("[api/feedback] WhatsApp send failed", err);
+        console.error("[api/feedback] group WhatsApp send failed", err);
         whatsappError =
-          err instanceof Error ? err.message : "Failed to send WhatsApp notification";
+          err instanceof Error
+            ? err.message
+            : "Failed to send WhatsApp notification";
       }
     } else {
       whatsappError =
         "No group JID configured. Please set at least one group JID in the Admin portal.";
+    }
+
+    // ── Send personal DM to the customer (best-effort) ─────────────────────
+    const customerPhone = contactNumber ? String(contactNumber).trim() : "";
+    let customerWhatsappSent = false;
+    let customerWhatsappError: string | null = null;
+
+    if (customerPhone) {
+      const customerText = formatCustomerMessage(
+        feedbackId,
+        String(name).trim()
+      );
+      try {
+        await sendDirectMessageWithRetry(customerPhone, customerText);
+        customerWhatsappSent = true;
+      } catch (err) {
+        console.error("[api/feedback] customer WhatsApp DM failed", err);
+        customerWhatsappError =
+          err instanceof Error ? err.message : "Failed to send customer DM";
+      }
+    } else {
+      customerWhatsappError = "No contact number provided";
     }
 
     await db.collection("feedback").updateOne(
@@ -144,16 +180,20 @@ export async function POST(request: NextRequest) {
         $set: {
           whatsappSent,
           whatsappError,
+          customerWhatsappSent,
+          customerWhatsappError,
         },
-        $inc: { attempts: 1 },
+        $inc: { attempts: 1, customerWhatsappAttempts: 1 },
       }
     );
 
     return NextResponse.json({
       success: true,
-      id: insertResult.insertedId,
+      id: feedbackId,
       whatsappSent,
       whatsappError,
+      customerWhatsappSent,
+      customerWhatsappError,
     });
   } catch (e) {
     console.error("[api/feedback]", e);
