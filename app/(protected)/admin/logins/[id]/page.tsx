@@ -55,6 +55,7 @@ type Member = {
   emergencyContact: string;
   suggestions: string;
   isBlocked: boolean;
+  isSold: boolean;
   source: string;
   createdAt: string | null;
   updatedAt: string | null;
@@ -193,6 +194,22 @@ export default function MemberDetailPage() {
     }
   }
 
+  async function handleToggleSold() {
+    if (!member) return;
+    try {
+      const res = await fetch(`/api/logins/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sold: !member.isSold }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setMessage({ type: "success", text: member.isSold ? "Sold status removed." : "Member marked as Sold." });
+      await fetchMember();
+    } catch {
+      setMessage({ type: "error", text: "Failed to update sold status." });
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -239,11 +256,16 @@ export default function MemberDetailPage() {
             </Link>
             <div>
               <h1 className="text-lg font-semibold text-black">{member.name}</h1>
-              <p className="text-sm text-black/60">
+              <p className="text-sm text-black/60 flex items-center gap-2">
                 #{member.membershipNumber || "—"}
                 {member.isBlocked && (
-                  <span className="ml-2 inline-block rounded-full bg-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                  <span className="inline-block rounded-full bg-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                     Blocked
+                  </span>
+                )}
+                {member.isSold && !member.isBlocked && (
+                  <span className="inline-block rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                    Sold
                   </span>
                 )}
               </p>
@@ -269,6 +291,17 @@ export default function MemberDetailPage() {
                   }`}
                 >
                   {member.isBlocked ? "Unblock" : "Block"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleSold}
+                  className={`rounded-lg border-2 px-4 py-2 text-sm font-semibold ${
+                    member.isSold
+                      ? "border-orange-500 bg-white text-orange-600 hover:bg-orange-500 hover:text-white"
+                      : "border-orange-500 bg-orange-500 text-white hover:bg-white hover:text-orange-600"
+                  }`}
+                >
+                  {member.isSold ? "Mark Active" : "Mark Sold"}
                 </button>
                 <button
                   type="button"
@@ -368,7 +401,8 @@ export default function MemberDetailPage() {
                 <p className="mb-3 border-b-2 border-black pb-1 text-xs font-bold uppercase tracking-widest text-black">
                   Record Info
                 </p>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Status" value={member.isBlocked ? "Blocked" : member.isSold ? "Sold" : "Active"} />
                   <Field label="Source" value={member.source} />
                   <Field label="Created At" value={member.createdAt ? new Date(member.createdAt).toLocaleString() : undefined} />
                   <Field label="Last Updated" value={member.updatedAt ? new Date(member.updatedAt).toLocaleString() : undefined} />

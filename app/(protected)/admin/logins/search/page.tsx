@@ -56,6 +56,7 @@ type Member = {
   emergencyContact: string;
   suggestions: string;
   isBlocked: boolean;
+  isSold: boolean;
   updatedAt: string | null;
 };
 
@@ -225,7 +226,22 @@ export default function MemberSearchPage() {
         body: JSON.stringify({ blocked: newStatus }),
       });
       if (!res.ok) throw new Error((await res.json()).error || "Failed");
-      setResults((prev) => prev.map((m) => m.id === memberSpec.id ? { ...m, isBlocked: newStatus } : m));
+      setResults((prev) => prev.map((m) => m.id === memberSpec.id ? { ...m, isBlocked: newStatus, isSold: newStatus ? false : m.isSold } : m));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Update failed");
+    }
+  };
+
+  const handleToggleSold = async (memberSpec: Member) => {
+    const newSold = !memberSpec.isSold;
+    try {
+      const res = await fetch(`/api/logins/${memberSpec.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sold: newSold }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Failed");
+      setResults((prev) => prev.map((m) => m.id === memberSpec.id ? { ...m, isSold: newSold, isBlocked: newSold ? false : m.isBlocked } : m));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Update failed");
     }
@@ -418,6 +434,8 @@ export default function MemberSearchPage() {
                           <td className="whitespace-nowrap px-3 py-2">
                             {m.isBlocked ? (
                               <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600 border border-red-200">BLOCKED</span>
+                            ) : m.isSold ? (
+                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-600 border border-orange-200">SOLD</span>
                             ) : (
                               <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700 border border-green-200">Active</span>
                             )}
@@ -434,15 +452,20 @@ export default function MemberSearchPage() {
                                   vehicleNumber: m.vehicleNumber, place: m.place, address: m.address,
                                   occupation: m.occupation, mailId: m.mailId, bloodGroup: m.bloodGroup,
                                   dateOfBirth: m.dateOfBirth, emergencyContact: m.emergencyContact,
-                                  suggestions: m.suggestions, isBlocked: m.isBlocked,
+                                  suggestions: m.suggestions, isBlocked: m.isBlocked, isSold: m.isSold,
                                 }); }}
                                 className="rounded-md border-2 border-black bg-white px-2 py-1 text-[11px] font-medium text-black hover:bg-black hover:text-white"
                               >Edit</button>
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); handleToggleBlock(m); }}
-                                className={`rounded-md border-2 border-black px-2 py-1 text-[11px] font-medium ${m.isBlocked ? "bg-green-500 text-white hover:bg-green-600" : "bg-orange-500 text-white hover:bg-orange-600"}`}
+                                className={`rounded-md border-2 border-black px-2 py-1 text-[11px] font-medium ${m.isBlocked ? "bg-green-500 text-white hover:bg-green-600" : "bg-black text-white hover:bg-white hover:text-black"}`}
                               >{m.isBlocked ? "Unblock" : "Block"}</button>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleToggleSold(m); }}
+                                className={`rounded-md border-2 border-orange-500 px-2 py-1 text-[11px] font-medium ${m.isSold ? "bg-white text-orange-600 hover:bg-orange-500 hover:text-white" : "bg-orange-500 text-white hover:bg-white hover:text-orange-600"}`}
+                              >{m.isSold ? "Unsold" : "Sold"}</button>
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); handleDelete(m); }}

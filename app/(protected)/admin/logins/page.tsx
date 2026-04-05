@@ -178,6 +178,7 @@ export default function LoginsPage() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [migrating, setMigrating] = useState(false);
   const [uploadLogs, setUploadLogs] = useState<UploadLog[]>([]);
   const [logsOpen, setLogsOpen] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -287,6 +288,23 @@ export default function LoginsPage() {
     }
   }
 
+  async function handleMigrateMembership() {
+    if (!confirm("This will strip decimals from ALL membership numbers (e.g. 1.0 → 1). Continue?")) return;
+    setMigrating(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/migrate-membership", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { setMessage({ type: "error", text: data.error || "Migration failed." }); return; }
+      setMessage({ type: "success", text: data.message });
+      await fetchMembers(1);
+    } catch {
+      setMessage({ type: "error", text: "Migration failed." });
+    } finally {
+      setMigrating(false);
+    }
+  }
+
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!uploadFile) {
@@ -354,6 +372,15 @@ export default function LoginsPage() {
             >
               Download Excel
             </a>
+            <button
+              type="button"
+              onClick={handleMigrateMembership}
+              disabled={migrating}
+              title="Strip decimals from all membership numbers (e.g. 1.0 → 1)"
+              className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white disabled:opacity-60"
+            >
+              {migrating ? "Fixing…" : "Fix Membership No."}
+            </button>
           </div>
         </div>
       </header>

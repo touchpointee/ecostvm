@@ -22,6 +22,7 @@ export type MemberInput = {
   emergencyContact?: string;
   suggestions?: string;
   isBlocked?: boolean;
+  isSold?: boolean;
   source?: "manual" | "upload" | "bootstrap" | "registration";
 };
 
@@ -45,6 +46,7 @@ export type MemberRecord = {
   emergencyContact: string;
   suggestions: string;
   isBlocked: boolean;
+  isSold: boolean;
   createdAt: string | null;
   updatedAt: string | null;
   source: string;
@@ -71,6 +73,7 @@ type MemberDoc = {
   emergencyContact?: string;
   suggestions?: string;
   isBlocked?: boolean;
+  isSold?: boolean;
   source?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -154,17 +157,33 @@ export function validateVehicleNumber(value: string): boolean {
 function normalizeDate(value: unknown): string {
   const raw = cleanText(value);
   if (!raw) return "";
+
+  // Excel date serial — only treat as serial if it's in a plausible range
+  // (1 = 1900-01-01, ~73050 = 2099-12-31). Phone numbers are 10 digits so
+  // they will be > 1_000_000 and are intentionally excluded here.
   if (/^\d+(\.\d+)?$/.test(raw)) {
     const serial = Number(raw);
-    if (Number.isFinite(serial) && serial > 0) {
-      const utc = Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000;
-      return new Date(utc).toISOString().slice(0, 10);
+    if (Number.isFinite(serial) && serial > 0 && serial < 200_000) {
+      try {
+        const utc = Date.UTC(1899, 11, 30) + Math.round(serial) * 86400000;
+        return new Date(utc).toISOString().slice(0, 10);
+      } catch {
+        return raw;
+      }
     }
+    // Large number — not a date, return as-is
+    return raw;
   }
+
+  // Text date — try to parse
   const replaced = raw.replace(/\./g, "/").replace(/-/g, "/");
-  const parsed = new Date(replaced);
-  if (!Number.isNaN(parsed.getTime()) && !/xxxx/i.test(raw)) {
-    return parsed.toISOString().slice(0, 10);
+  try {
+    const parsed = new Date(replaced);
+    if (!Number.isNaN(parsed.getTime()) && !/xxxx/i.test(raw)) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  } catch {
+    // fall through
   }
   return raw;
 }
@@ -190,6 +209,7 @@ function mapMemberDoc(doc: MemberDoc): MemberRecord {
     emergencyContact: doc.emergencyContact ?? "",
     suggestions: doc.suggestions ?? "",
     isBlocked: !!doc.isBlocked,
+    isSold: !!doc.isSold,
     createdAt: doc.createdAt?.toISOString() ?? null,
     updatedAt: doc.updatedAt?.toISOString() ?? null,
     source: doc.source ?? "manual",
@@ -309,6 +329,7 @@ export async function upsertMember(input: MemberInput, allowUpdate: boolean = tr
       emergencyContact: normalizeLooseText(input.emergencyContact),
       suggestions: cleanText(input.suggestions),
       ...(input.isBlocked !== undefined ? { isBlocked: input.isBlocked } : {}),
+      ...(input.isSold !== undefined ? { isSold: input.isSold } : {}),
       source: input.source ?? existingById.source ?? "manual",
       updatedAt: now,
     };
@@ -358,6 +379,7 @@ export async function upsertMember(input: MemberInput, allowUpdate: boolean = tr
       emergencyContact: normalizeLooseText(input.emergencyContact),
       suggestions: cleanText(input.suggestions),
       ...(input.isBlocked !== undefined ? { isBlocked: input.isBlocked } : {}),
+      ...(input.isSold !== undefined ? { isSold: input.isSold } : {}),
       source: input.source ?? "manual",
     updatedAt: now,
   };
@@ -575,10 +597,31 @@ export async function updateMemberBlockStatus(id: string, blocked: boolean): Pro
   }
   const collection = await membersCollection();
   try {
-    const result = await collection.updateOne({ _id: objId }, { $set: { isBlocked: blocked, updatedAt: new Date() } });
-    if (result.matchedCount === 0) {
-      return { ok: false, error: "Member not found" };
-    }
+    // Setting blocked clears sold; unblocking does not change sold
+    const setFields: Record<string, unknown> = { isBlocked: blocked, updatedAt: new Date() };
+    if (blocked) setFields.isSold = false;
+    const result = await collection.updateOne({ _id: objId }, { $set: setFields });
+    if (result.matchedCount === 0) return { ok: false, error: "Member not found" };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Update failed" };
+  }
+}
+
+export async function updateMemberSoldStatus(id: string, sold: boolean): Promise<{ ok: boolean; error?: string }> {
+  let objId;
+  try {
+    objId = new ObjectId(id);
+  } catch {
+    return { ok: false, error: "Invalid ID" };
+  }
+  const collection = await membersCollection();
+  try {
+    // Marking sold clears blocked; unmarking sold just clears isSold
+    const setFields: Record<string, unknown> = { isSold: sold, updatedAt: new Date() };
+    if (sold) setFields.isBlocked = false;
+    const result = await collection.updateOne({ _id: objId }, { $set: setFields });
+    if (result.matchedCount === 0) return { ok: false, error: "Member not found" };
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Update failed" };

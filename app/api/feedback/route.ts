@@ -111,15 +111,17 @@ export async function POST(request: NextRequest) {
         }
       }
       if (orClauses.length > 0) {
-        const blockedMember = await db.collection("logins").findOne({
-          $or: orClauses,
-          isBlocked: true,
+        const restrictedMember = await db.collection("logins").findOne({
+          $and: [
+            { $or: orClauses },
+            { $or: [{ isBlocked: true }, { isSold: true }] },
+          ],
         });
-        if (blockedMember) {
-          return NextResponse.json(
-            { error: "You are not a part of EcoSport TVM now." },
-            { status: 403 }
-          );
+        if (restrictedMember) {
+          const msg = restrictedMember.isBlocked
+            ? "You are not a part of EcoSport TVM now."
+            : "You have sold your vehicle and cannot submit service feedback.";
+          return NextResponse.json({ error: msg }, { status: 403 });
         }
       }
     }

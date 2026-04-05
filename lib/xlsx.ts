@@ -41,15 +41,7 @@ function readSharedStrings(zip: AdmZip): string[] {
   return items;
 }
 
-function readWorksheetRows(zip: AdmZip, sharedStrings: string[]): string[][] {
-  const worksheetEntry =
-    zip.getEntry("xl/worksheets/sheet1.xml") ??
-    zip.getEntries().find((entry) => /^xl\/worksheets\/sheet\d+\.xml$/i.test(entry.entryName));
-  if (!worksheetEntry) {
-    throw new Error("No worksheet found in Excel file.");
-  }
-
-  const xml = worksheetEntry.getData().toString("utf8");
+function parseRowsFromXml(xml: string, sharedStrings: string[]): string[][] {
   const rows: string[] = [];
   const rowRegex = /<row[^>]*>([\s\S]*?)<\/row>/g;
   let rowMatch: RegExpExecArray | null = rowRegex.exec(xml);
@@ -57,7 +49,6 @@ function readWorksheetRows(zip: AdmZip, sharedStrings: string[]): string[][] {
     rows.push(rowMatch[1]);
     rowMatch = rowRegex.exec(xml);
   }
-
   return rows.map((rowXml) => {
     const values: string[] = [];
     const cellRegex = /<c\b([^>]*)>([\s\S]*?)<\/c>/g;
@@ -70,7 +61,6 @@ function readWorksheetRows(zip: AdmZip, sharedStrings: string[]): string[][] {
       const colIndex = refMatch ? columnIndexFromRef(refMatch[1]) : values.length;
       const type = typeMatch?.[1];
       let value = "";
-
       if (type === "s") {
         const sharedIndex = Number(body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? "-1");
         value = sharedStrings[sharedIndex] ?? "";
@@ -79,13 +69,53 @@ function readWorksheetRows(zip: AdmZip, sharedStrings: string[]): string[][] {
       } else {
         value = xmlDecode(body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? "");
       }
-
       values[colIndex] = value.trim();
       cellMatch = cellRegex.exec(rowXml);
     }
     return values;
   });
 }
+
+function readWorksheetRows(zip: AdmZip, sharedStrings: string[]): string[][] {
+  // Collect all worksheet entries
+  const allSheets = zip
+    .getEntries()
+    .filter((entry) => /^xl\/worksheets\/sheet\d+\.xml$/i.test(entry.entryName))
+    .sort((a, b) => {
+      const numA = parseInt(a.entryName.match(/(\d+)\.xml$/)?.[1] ?? "0");
+      const numB = parseInt(b.entryName.match(/(\d+)\.xml$/)?.[1] ?? "0");
+      return numA - numB;
+    });
+
+  if (allSheets.length === 0) {
+    throw new Error("No worksheet found in Excel file.");
+  }
+
+  // Pick the sheet whose header row has the most non-empty columns
+  let bestRows: string[][] = [];
+  let bestHeaderCount = 0;
+
+  for (const entry of allSheets) {
+    const xml = entry.getData().toString("utf8");
+    const rows = parseRowsFromXml(xml, sharedStrings).filter((row) => row.some(Boolean));
+    if (rows.length < 2) continue;
+    const headerCount = (rows[0] ?? []).filter(Boolean).length;
+    console.log(`[xlsx] sheet "${entry.entryName}": ${rows.length} rows, ${headerCount} header cols`);
+    if (headerCount > bestHeaderCount) {
+      bestHeaderCount = headerCount;
+      bestRows = rows;
+    }
+  }
+
+  if (bestRows.length === 0) {
+    // fallback: just parse the first sheet
+    const xml = allSheets[0].getData().toString("utf8");
+    return parseRowsFromXml(xml, sharedStrings).filter((row) => row.some(Boolean));
+  }
+
+  return bestRows;
+}
+
 
 function normalizeHeader(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -99,7 +129,9 @@ export function parseMembersFromXlsx(buffer: Buffer): MemberInput[] {
     return [];
   }
 
-  const headers = rows[0].map(normalizeHeader);
+  const rawHeaders = rows[0];
+  const headers = rawHeaders.map(normalizeHeader);
+  console.log("[xlsx] detected headers:", headers);
   const getValue = (row: string[], aliases: string[]) => {
     const index = headers.findIndex((header) => aliases.includes(header));
     return index >= 0 ? row[index] ?? "" : "";
@@ -107,26 +139,76 @@ export function parseMembersFromXlsx(buffer: Buffer): MemberInput[] {
 
   return rows.slice(1).map((row) => ({
     name: getValue(row, ["name", "fullname"]),
-    membershipNumber: normalizeMembershipNumber(getValue(row, ["membershipno", "membershipnumber", "membership", "member id", "memberid", "member no", "memberno"])),
-    contactNumber: getValue(row, ["contactno", "contactnumber", "phonenumber", "mobileno", "mobile"]),
-    model: getValue(row, ["model", "mode", "modelofthevehicle"]),
-    purchaseMonth: getValue(row, ["purchasemonth", "purchase"]),
-    manufacturingYear: getValue(row, ["manufacturingyear", "year", "mfgyear"]),
-    variant: getValue(row, ["variant"]),
-    vehicleColor: getValue(row, ["colorofthevehicle", "vehiclecolor", "color"]),
-    vehicleNumber: getValue(row, ["vehicleno", "vehiclenumber", "registrationnumber"]),
-    place: getValue(row, ["place", "location"]),
-    address: getValue(row, ["address", "fulladdress"]),
-    occupation: getValue(row, ["occupation", "job"]),
-    mailId: getValue(row, ["mailid", "email", "mail"]),
-    bloodGroup: getValue(row, ["bloodgroup", "blood"]),
-    dateOfBirth: getValue(row, ["dateofbirthborndate", "dateofbirth", "borndate", "dob"]),
-    emergencyContact: getValue(row, ["emergencycontact", "emergency"]),
-    suggestions: getValue(row, ["suggestions", "suggestion", "suggestionsifany"]),
-    // "Active" (or empty) → not blocked; anything else (Sold, Inactive, SOLD…) → blocked
+    membershipNumber: normalizeMembershipNumber(getValue(row, [
+      "membershipno", "membershipnumber", "membership",
+      "memberid", "memberno", "membershipid",
+    ])),
+    contactNumber: getValue(row, [
+      "contactno", "contactnumber", "phonenumber",
+      "mobileno", "mobile", "phone", "contact",
+    ]),
+    model: getValue(row, [
+      "model", "mode", "modelofthevehicle", "vehiclemodel",
+      "carmodel", "carormodel",
+    ]),
+    purchaseMonth: getValue(row, [
+      "purchasemonth", "purchase", "monthofpurchase",
+      "purchasedate", "datofpurchase",
+    ]),
+    manufacturingYear: getValue(row, [
+      "manufacturingyear", "manufactureyear", "year",
+      "mfgyear", "yearofmanufacturing", "yearofmanufacture",
+    ]),
+    variant: getValue(row, [
+      "variant", "variantname", "carvariant",
+    ]),
+    vehicleColor: getValue(row, [
+      "colorofthevehicle", "vehiclecolor", "color",
+      "colour", "vehiclecolour", "colorofvehicle",
+    ]),
+    vehicleNumber: getValue(row, [
+      "vehicleno", "vehiclenumber", "registrationnumber",
+      "regnumber", "regno", "vehicleregnumber", "vehicleregistration",
+    ]),
+    place: getValue(row, [
+      "place", "location", "city", "town",
+    ]),
+    address: getValue(row, [
+      "address", "fulladdress", "streetaddress",
+    ]),
+    occupation: getValue(row, [
+      "occupation", "job", "profession", "work",
+    ]),
+    mailId: getValue(row, [
+      "mailid", "email", "mail", "emailid",
+      "emailaddress", "mailidaddress",
+    ]),
+    bloodGroup: getValue(row, [
+      "bloodgroup", "blood", "bloodtype", "bg",
+    ]),
+    dateOfBirth: getValue(row, [
+      "dateofbirthborndate", "dateofbirth", "borndate",
+      "dob", "birthdate", "dateofbirthborndate",
+      "dateofbirth", "birthdate", "dob",
+    ]),
+    emergencyContact: getValue(row, [
+      "emergencycontactnumbers", "emergencycontactnumber",
+      "emergencycontact", "emergency", "emergencynumber",
+      "emergencyno", "emergencycontactno",
+    ]),
+    suggestions: (() => {
+      const raw = getValue(row, ["suggestionsifany", "suggestions", "suggestion"]).trim();
+      // If the cell contains only digits (e.g. accidental numbers in the sheet), discard it
+      return /^\d+$/.test(raw) ? "" : raw;
+    })(),
+    // Status mapping: "Active"/empty → active; "Sold" → sold; anything else → blocked
     isBlocked: (() => {
       const s = getValue(row, ["memberstatus", "status", "membersstatus"]).trim().toLowerCase();
-      return s !== "" && s !== "active";
+      return s !== "" && s !== "active" && s !== "sold";
+    })(),
+    isSold: (() => {
+      const s = getValue(row, ["memberstatus", "status", "membersstatus"]).trim().toLowerCase();
+      return s === "sold";
     })(),
     source: "upload",
   }));
@@ -194,7 +276,7 @@ export function createMembersWorkbook(members: MemberRecord[]): Buffer {
       member.dateOfBirth,
       member.emergencyContact,
       member.suggestions,
-      member.isBlocked ? "Blocked" : "Active",
+      member.isBlocked ? "Blocked" : member.isSold ? "Sold" : "Active",
     ]),
   ];
 

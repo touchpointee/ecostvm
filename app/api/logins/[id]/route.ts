@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteMemberById, getMemberById, updateMemberBlockStatus } from "@/lib/members";
+import { deleteMemberById, getMemberById, updateMemberBlockStatus, updateMemberSoldStatus } from "@/lib/members";
 
 const ADMIN_COOKIE = "ecostvm_admin";
 
@@ -35,10 +35,16 @@ export async function PUT(
   const id = params.id;
   try {
     const body = await request.json();
-    const { blocked } = body;
-    
+    const { blocked, sold } = body;
+
+    if (typeof sold === "boolean") {
+      const result = await updateMemberSoldStatus(id, sold);
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+      return NextResponse.json({ success: true });
+    }
+
     if (typeof blocked !== "boolean") {
-      return NextResponse.json({ error: "Invalid blocked status." }, { status: 400 });
+      return NextResponse.json({ error: "Invalid blocked or sold status." }, { status: 400 });
     }
 
     const result = await updateMemberBlockStatus(id, blocked);
