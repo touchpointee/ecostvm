@@ -397,22 +397,6 @@ export default function LoginsPage() {
             >
               Download Excel
             </a>
-            <button
-              type="button"
-              onClick={handleMigrateMembership}
-              disabled={migrating}
-              title="Strip decimals from all membership numbers (e.g. 1.0 → 1)"
-              className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white disabled:opacity-60"
-            >
-              {migrating ? "Fixing…" : "Fix Membership No."}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setClearOpen(true); setClearPhrase(""); }}
-              className="rounded-lg border-2 border-red-600 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white"
-            >
-              🗑 Clear All
-            </button>
           </div>
         </div>
       </header>
