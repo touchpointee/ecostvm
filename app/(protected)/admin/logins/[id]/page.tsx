@@ -61,7 +61,7 @@ type Member = {
   updatedAt: string | null;
 };
 
-type EditForm = Omit<Member, "id" | "isBlocked" | "source" | "createdAt" | "updatedAt">;
+type EditForm = Omit<Member, "id" | "isBlocked" | "isSold" | "source" | "createdAt" | "updatedAt">;
 
 const inputCls =
   "mt-1 block w-full rounded-lg border-2 border-black px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500";

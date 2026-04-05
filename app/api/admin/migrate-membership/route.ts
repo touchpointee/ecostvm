@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
   const db = await getDb();
   const collection = db.collection("logins");
 
-  // Fetch every document that has a membershipNumber
   const docs = await collection
     .find({ membershipNumber: { $exists: true, $ne: "" } })
     .project({ _id: 1, membershipNumber: 1 })

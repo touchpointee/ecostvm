@@ -10,7 +10,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    // Require explicit confirmation phrase to prevent accidental calls
     if (body?.confirm !== "DELETE ALL MEMBERS") {
       return NextResponse.json(
         { error: "Confirmation phrase did not match." },
