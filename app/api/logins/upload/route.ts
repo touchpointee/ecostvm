@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bulkUpsertMembers, ensureMemberIndexes } from "@/lib/members";
 import { parseMembersFromXlsx } from "@/lib/xlsx";
+import { saveUploadLog } from "@/lib/uploadLogs";
 
 const ADMIN_COOKIE = "ecostvm_admin";
 
@@ -35,6 +36,17 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await bulkUpsertMembers(rows);
+
+    // Persist log to DB (best-effort)
+    saveUploadLog({
+      fileName: file.name,
+      totalRows: rows.length,
+      inserted: result.inserted,
+      updated: result.updated,
+      skipped: result.skipped,
+      errors: result.errors,
+    }).catch((e) => console.error("[upload] failed to save log", e));
+
     return NextResponse.json({
       success: true,
       totalRows: rows.length,

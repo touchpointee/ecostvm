@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -123,18 +124,34 @@ export default function FeedbackPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[#eff3fb]">
       <Header />
-      <main className="mx-auto flex w-full max-w-3xl flex-1 items-start justify-center bg-white px-4 py-12 sm:px-6">
-        <div className="w-full rounded-2xl border-2 border-black bg-white p-6 shadow-lg sm:p-8">
-          <div className="border-b-2 border-black pb-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-500">
-              EcoSport Owner&apos;s Club Trivandrum
-            </p>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-black sm:text-3xl">
-              Service Feedback
+      <main className="mx-auto w-full max-w-2xl flex-1 px-0 pb-12 sm:px-4 sm:pt-8">
+
+        {/* Banner */}
+        <div className="overflow-hidden rounded-t-2xl border-2 border-black bg-white shadow-md sm:rounded-2xl">
+          <div className="relative w-full" style={{ aspectRatio: "16/7" }}>
+            <Image
+              src="/club-banner.jpg"
+              alt="EcoSport TVM Club"
+              fill
+              className="object-cover object-top"
+              priority
+              unoptimized
+            />
+          </div>
+          <div className="border-t-4 border-[#4A5FA5] px-6 py-5">
+            <h1 className="text-xl font-bold text-black sm:text-2xl">
+              Welcome to Ecosport owner&apos;s club Trivandrum
             </h1>
-            <p className="mt-2 text-sm text-black/80">
+            <p className="mt-0.5 text-sm text-black/50 italic">(TVM/TC/34/2020)</p>
+            <p className="mt-3 text-sm font-semibold text-black">Service Feedback</p>
+          </div>
+        </div>
+
+        <div className="w-full rounded-b-2xl border-x-2 border-b-2 border-black bg-white p-6 shadow-lg sm:rounded-2xl sm:border-t-2 sm:mt-5 sm:p-8">
+          <div className="border-b-2 border-black pb-6">
+            <p className="text-sm text-black/80">
               Share feedback or concerns about your recent service so the team can assist you.
             </p>
           </div>

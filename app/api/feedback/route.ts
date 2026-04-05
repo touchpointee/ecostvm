@@ -94,6 +94,36 @@ export async function POST(request: NextRequest) {
     }
 
     const db = await getDb();
+
+    // Reject blocked members — check by contact number OR vehicle number
+    {
+      const orClauses: object[] = [];
+      if (contactNumber) {
+        const phone = String(contactNumber).replace(/\D/g, "").trim();
+        if (phone) {
+          orClauses.push({ phoneNumber: phone }, { contactNumber: phone });
+        }
+      }
+      if (vehicleNumber) {
+        const vn = String(vehicleNumber).trim().toUpperCase();
+        if (vn) {
+          orClauses.push({ vehicleNumber: vn });
+        }
+      }
+      if (orClauses.length > 0) {
+        const blockedMember = await db.collection("logins").findOne({
+          $or: orClauses,
+          isBlocked: true,
+        });
+        if (blockedMember) {
+          return NextResponse.json(
+            { error: "You are not a part of EcoSport TVM now." },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     const now = new Date();
     const trackingCode = String(Math.floor(10000 + Math.random() * 90000));
     const insertResult = await db.collection("feedback").insertOne({

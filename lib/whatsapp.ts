@@ -304,14 +304,15 @@ export async function sendImageToGroupWithRetry(
   image: Buffer,
   _filename: string,
   caption?: string
-): Promise<void> {
+): Promise<string | undefined> {
   const safeCaption = caption?.trim() ?? "";
 
   const doSend = async (sock: WASocket) =>
     sock.sendMessage(groupJid, { image, caption: safeCaption });
 
   try {
-    await doSend(await getSocketWhenReady());
+    const msg = await doSend(await getSocketWhenReady());
+    return msg?.key?.id ?? undefined;
   } catch (e) {
     if (isConnectionError(e)) {
       console.warn(
@@ -320,7 +321,8 @@ export async function sendImageToGroupWithRetry(
       );
       clearSocketIfClosed();
       await connect();
-      await doSend(await getSocketWhenReady());
+      const msg = await doSend(await getSocketWhenReady());
+      return msg?.key?.id ?? undefined;
     } else {
       throw e;
     }

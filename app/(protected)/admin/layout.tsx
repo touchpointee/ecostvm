@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -12,6 +12,22 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    async function fetchCount() {
+      try {
+        const res = await fetch("/api/registrations?count=1");
+        const data = await res.json();
+        setPendingCount(data.count ?? 0);
+      } catch {
+        // ignore
+      }
+    }
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -22,9 +38,15 @@ export default function AdminLayout({
   const nav = [
     { href: "/admin", label: "Dashboard" },
     { href: "/admin/feedbacks", label: "Feedbacks" },
+    { href: "/admin/registrations", label: "Registrations", badge: pendingCount },
     { href: "/admin/logins", label: "Members" },
     { href: "/admin/logins/search", label: "Search" },
     { href: "/admin/birthdays", label: "Birthdays" },
+    { href: "/admin/settings", label: "Settings" },
+  ];
+
+  const externalLinks = [
+    { href: "/register", label: "Registration Form" },
   ];
 
   const navContent = (
@@ -39,17 +61,39 @@ export default function AdminLayout({
             key={item.href}
             href={item.href}
             onClick={() => setMenuOpen(false)}
-            className={`block rounded-lg px-3 py-2 text-sm font-medium ${
+            className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium ${
               pathname === item.href
                 ? "bg-yellow-400 text-black"
                 : "text-white hover:bg-white/10"
             }`}
           >
-            {item.label}
+            <span>{item.label}</span>
+            {item.badge != null && item.badge > 0 && (
+              <span className={`ml-2 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
+                pathname === item.href ? "bg-black text-yellow-400" : "bg-yellow-400 text-black"
+              }`}>
+                {item.badge > 99 ? "99+" : item.badge}
+              </span>
+            )}
           </Link>
         ))}
       </nav>
       <div className="space-y-0.5 border-t border-white/20 px-2 pt-4">
+        {externalLinks.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-yellow-300 hover:bg-white/10"
+          >
+            {item.label}
+            <svg className="h-3.5 w-3.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </Link>
+        ))}
         <Link
           href="/"
           onClick={() => setMenuOpen(false)}
@@ -79,12 +123,17 @@ export default function AdminLayout({
           <button
             type="button"
             onClick={() => setMenuOpen(true)}
-            className="rounded-lg border border-white/20 p-2 text-white"
+            className="relative rounded-lg border border-white/20 p-2 text-white"
             aria-label="Open menu"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
+            {pendingCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-400 text-[9px] font-bold text-black">
+                {pendingCount > 9 ? "9+" : pendingCount}
+              </span>
+            )}
           </button>
         </div>
       </header>

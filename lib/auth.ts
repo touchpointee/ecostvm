@@ -89,8 +89,8 @@ export async function removeLogin(phoneNumber: string): Promise<{ ok: boolean; e
 }
 
 export async function listLogins(): Promise<string[]> {
-  const members = await listMembers();
-  return members.map((member) => member.contactNumber).filter((value) => value.length > 0);
+  const { items } = await listMembers({ limit: 0 });
+  return items.map((member) => member.contactNumber).filter((value) => value.length > 0);
 }
 
 export { COOKIE_NAME, MAX_AGE };

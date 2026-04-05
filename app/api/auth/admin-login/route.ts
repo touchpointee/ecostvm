@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminLogin } from "@/lib/settings";
 
-const ADMIN_USERNAME = "Ecostvm";
-const ADMIN_PASSWORD = "Hashmi6676";
 const ADMIN_COOKIE = "ecostvm_admin";
 
 export async function POST(request: NextRequest) {
@@ -17,7 +16,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+    const valid = await verifyAdminLogin(username, password);
+    if (!valid) {
       return NextResponse.json(
         { error: "Invalid username or password." },
         { status: 401 }

@@ -305,7 +305,9 @@ export default function AdminDashboardPage() {
         throw new Error(data.error || "Failed to send birthday wishes.");
       }
 
-      if (Array.isArray(data.errors) && data.errors.length > 0 && (data.sent ?? 0) === 0 && (data.skipped ?? 0) === 0) {
+      if (typeof data.statusMessage === "string" && data.statusMessage) {
+        setMessage(data.statusMessage);
+      } else if (Array.isArray(data.errors) && data.errors.length > 0 && (data.sent ?? 0) === 0 && (data.skipped ?? 0) === 0) {
         setMessage(data.errors.join(" | "));
       } else if ((data.sent ?? 0) === 0 && (data.skipped ?? 0) === 0) {
         setMessage("No birthdays found for today.");
@@ -349,6 +351,37 @@ export default function AdminDashboardPage() {
       </header>
       <div className="p-4 sm:p-6">
         <div className="mx-auto max-w-4xl space-y-6 sm:space-y-8">
+          <section className="rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-black">Member Registration Form</h2>
+            <p className="mt-1 text-sm text-black/70">Share this link with members so they can register themselves.</p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <a
+                href="/register"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Open Registration Form
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}/register`;
+                  navigator.clipboard.writeText(url).then(() => setMessage("Registration link copied to clipboard!"));
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-yellow-400 px-4 py-2 text-sm font-semibold text-black hover:bg-yellow-300"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Copy Link
+              </button>
+            </div>
+          </section>
+
           <section className="rounded-2xl border-2 border-black bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-black">WhatsApp connection</h2>
             <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -414,9 +447,6 @@ export default function AdminDashboardPage() {
                     </div>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-black/60">
-                  QR needs a long‑running server (VPS, Railway, Render). It will not work on serverless (e.g. Vercel) because each request can hit a different instance.
-                </p>
               </div>
             )}
           </section>
@@ -586,7 +616,7 @@ export default function AdminDashboardPage() {
           <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">
             <h2 className="text-lg font-semibold text-black">Birthday wishes</h2>
             <p className="mt-1 text-sm text-black/80">
-              The system now checks birthdays automatically and sends the greeting card to the birthday group once per member per day.
+              The scheduler checks birthdays hourly and sends one card per member per calendar day. Each successful send is stored in the database with its WhatsApp message id, so repeat clicks or overlapping jobs cannot post duplicates.
             </p>
             <button
               type="button"

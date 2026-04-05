@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const blocked = await isBlocked(number);
     if (blocked) {
       return NextResponse.json(
-        { error: "user has been blocked" },
+        { error: "You are not a part of EcoSport TVM now." },
         { status: 403 }
       );
     }

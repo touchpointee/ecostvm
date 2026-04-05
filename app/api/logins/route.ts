@@ -29,20 +29,35 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ exists, next });
     }
 
-    const items = await listMembers({
+    const isXlsx = searchParams.get("format") === "xlsx";
+    const page = parseInt(searchParams.get("page") ?? "1", 10);
+    const limit = isXlsx ? 0 : parseInt(searchParams.get("limit") ?? "50", 10);
+
+    const result = await listMembers({
       q: searchParams.get("q") ?? "",
       name: searchParams.get("name") ?? "",
       membershipNumber: searchParams.get("membershipNumber") ?? "",
       contactNumber: searchParams.get("contactNumber") ?? "",
+      model: searchParams.get("model") ?? "",
+      purchaseMonth: searchParams.get("purchaseMonth") ?? "",
+      manufacturingYear: searchParams.get("manufacturingYear") ?? "",
+      variant: searchParams.get("variant") ?? "",
       vehicleNumber: searchParams.get("vehicleNumber") ?? "",
       vehicleColor: searchParams.get("vehicleColor") ?? "",
       place: searchParams.get("place") ?? "",
       address: searchParams.get("address") ?? "",
+      occupation: searchParams.get("occupation") ?? "",
+      mailId: searchParams.get("mailId") ?? "",
       bloodGroup: searchParams.get("bloodGroup") ?? "",
       dateOfBirth: searchParams.get("dateOfBirth") ?? "",
+      emergencyContact: searchParams.get("emergencyContact") ?? "",
+      suggestions: searchParams.get("suggestions") ?? "",
+      page,
+      limit,
     });
-    if (searchParams.get("format") === "xlsx") {
-      const workbook = createMembersWorkbook(items);
+
+    if (isXlsx) {
+      const workbook = createMembersWorkbook(result.items);
       const filename = `members-${new Date().toISOString().slice(0, 10)}.xlsx`;
       return new NextResponse(new Uint8Array(workbook), {
         status: 200,
@@ -52,7 +67,7 @@ export async function GET(request: NextRequest) {
         },
       });
     }
-    return NextResponse.json({ items });
+    return NextResponse.json({ items: result.items, total: result.total, page, limit });
   } catch (e) {
     console.error("[api/logins GET]", e);
     return NextResponse.json(
@@ -70,7 +85,7 @@ export async function POST(request: NextRequest) {
     await ensureMemberIndexes();
     const body = await request.json();
 
-    const requiredFields = ["name", "membershipNumber", "contactNumber", "vehicleColor", "vehicleNumber", "place", "address", "bloodGroup", "dateOfBirth"];
+    const requiredFields = ["name", "contactNumber", "vehicleNumber", "place", "address", "dateOfBirth"];
     for (const field of requiredFields) {
         if (!body[field] || String(body[field]).trim() === "") {
             return NextResponse.json({ error: `Please fill in all fields (missing ${field}).` }, { status: 400 });
@@ -93,12 +108,20 @@ export async function POST(request: NextRequest) {
       name: body?.name,
       membershipNumber: body?.membershipNumber,
       contactNumber: body?.contactNumber ?? body?.number ?? body?.phoneNumber,
+      model: body?.model,
+      purchaseMonth: body?.purchaseMonth,
+      manufacturingYear: body?.manufacturingYear,
+      variant: body?.variant,
       vehicleColor: body?.vehicleColor,
       vehicleNumber: body?.vehicleNumber,
       place: body?.place,
       address: body?.address,
+      occupation: body?.occupation,
+      mailId: body?.mailId,
       bloodGroup: body?.bloodGroup,
       dateOfBirth: body?.dateOfBirth,
+      emergencyContact: body?.emergencyContact,
+      suggestions: body?.suggestions,
       source: "manual",
     }, body?.mode === "edit");
     if (!result.ok) {

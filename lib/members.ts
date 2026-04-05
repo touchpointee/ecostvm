@@ -7,14 +7,22 @@ export type MemberInput = {
   membershipNumber?: string;
   contactNumber?: string;
   phoneNumber?: string;
+  model?: string;
+  purchaseMonth?: string;
+  manufacturingYear?: string;
+  variant?: string;
   vehicleColor?: string;
   vehicleNumber?: string;
   place?: string;
   address?: string;
+  occupation?: string;
+  mailId?: string;
   bloodGroup?: string;
   dateOfBirth?: string;
+  emergencyContact?: string;
+  suggestions?: string;
   isBlocked?: boolean;
-  source?: "manual" | "upload" | "bootstrap";
+  source?: "manual" | "upload" | "bootstrap" | "registration";
 };
 
 export type MemberRecord = {
@@ -22,12 +30,20 @@ export type MemberRecord = {
   name: string;
   membershipNumber: string;
   contactNumber: string;
+  model: string;
+  purchaseMonth: string;
+  manufacturingYear: string;
+  variant: string;
   vehicleColor: string;
   vehicleNumber: string;
   place: string;
   address: string;
+  occupation: string;
+  mailId: string;
   bloodGroup: string;
   dateOfBirth: string;
+  emergencyContact: string;
+  suggestions: string;
   isBlocked: boolean;
   createdAt: string | null;
   updatedAt: string | null;
@@ -40,12 +56,20 @@ type MemberDoc = {
   contactNumber?: string;
   name?: string;
   membershipNumber?: string;
+  model?: string;
+  purchaseMonth?: string;
+  manufacturingYear?: string;
+  variant?: string;
   vehicleColor?: string;
   vehicleNumber?: string;
   place?: string;
   address?: string;
+  occupation?: string;
+  mailId?: string;
   bloodGroup?: string;
   dateOfBirth?: string;
+  emergencyContact?: string;
+  suggestions?: string;
   isBlocked?: boolean;
   source?: string;
   createdAt?: Date;
@@ -57,12 +81,22 @@ export type MemberFilters = {
   name?: string;
   membershipNumber?: string;
   contactNumber?: string;
+  model?: string;
+  purchaseMonth?: string;
+  manufacturingYear?: string;
+  variant?: string;
   vehicleNumber?: string;
   vehicleColor?: string;
   place?: string;
   address?: string;
+  occupation?: string;
+  mailId?: string;
   bloodGroup?: string;
   dateOfBirth?: string;
+  emergencyContact?: string;
+  suggestions?: string;
+  page?: number;
+  limit?: number;
 };
 
 function membersCollection() {
@@ -88,6 +122,18 @@ export function normalizePhoneNumber(value: unknown): string {
 
 function normalizeLooseText(value: unknown): string {
   return cleanText(value).replace(/\s+/g, " ");
+}
+
+export function normalizeMembershipNumber(value: unknown): string {
+  const raw = cleanText(value);
+  if (!raw) return "";
+  // Handle scientific notation (e.g. "1.23E3" -> "1230") and decimals ("123.0" -> "123")
+  const asNumber = Number(raw);
+  if (Number.isFinite(asNumber) && asNumber >= 0) {
+    return String(Math.floor(asNumber));
+  }
+  // Fallback: strip any decimal portion
+  return raw.replace(/\.\d+$/, "");
 }
 
 export function validateVehicleNumber(value: string): boolean {
@@ -129,12 +175,20 @@ function mapMemberDoc(doc: MemberDoc): MemberRecord {
     name: doc.name ?? "",
     membershipNumber: doc.membershipNumber ?? "",
     contactNumber: doc.contactNumber ?? doc.phoneNumber ?? "",
+    model: doc.model ?? "",
+    purchaseMonth: doc.purchaseMonth ?? "",
+    manufacturingYear: doc.manufacturingYear ?? "",
+    variant: doc.variant ?? "",
     vehicleColor: doc.vehicleColor ?? "",
     vehicleNumber: doc.vehicleNumber ?? "",
     place: doc.place ?? "",
     address: doc.address ?? "",
+    occupation: doc.occupation ?? "",
+    mailId: doc.mailId ?? "",
     bloodGroup: doc.bloodGroup ?? "",
     dateOfBirth: doc.dateOfBirth ?? "",
+    emergencyContact: doc.emergencyContact ?? "",
+    suggestions: doc.suggestions ?? "",
     isBlocked: !!doc.isBlocked,
     createdAt: doc.createdAt?.toISOString() ?? null,
     updatedAt: doc.updatedAt?.toISOString() ?? null,
@@ -156,12 +210,24 @@ async function findMemberByMembershipNumber(membershipNumber: string) {
   });
 }
 
+export async function getMemberById(id: string): Promise<MemberRecord | null> {
+  let objId: ObjectId;
+  try {
+    objId = new ObjectId(id);
+  } catch {
+    return null;
+  }
+  const collection = await membersCollection();
+  const doc = await collection.findOne({ _id: objId });
+  return doc ? mapMemberDoc(doc) : null;
+}
+
 export async function ensureMemberIndexes() {
   const collection = await membersCollection();
   await Promise.all([
     collection.createIndex({ phoneNumber: 1 }, { unique: true }),
-    collection.createIndex({ name: 1 }),
     collection.createIndex({ membershipNumber: 1 }),
+    collection.createIndex({ name: 1 }),
     collection.createIndex({ vehicleNumber: 1 }),
     collection.createIndex({ place: 1 }),
     collection.createIndex({ bloodGroup: 1 }),
@@ -179,7 +245,7 @@ export async function upsertMember(input: MemberInput, allowUpdate: boolean = tr
   const dateOfBirth = normalizeDate(input.dateOfBirth);
   const place = normalizeLooseText(input.place);
   const address = normalizeLooseText(input.address);
-  const rawMembershipNumber = normalizeLooseText(input.membershipNumber);
+  const rawMembershipNumber = normalizeMembershipNumber(input.membershipNumber);
 
   if (!name) return { ok: false, error: "Name is required." };
   if (!phoneNumber || phoneNumber.length < 10) {
@@ -228,12 +294,21 @@ export async function upsertMember(input: MemberInput, allowUpdate: boolean = tr
       contactNumber: phoneNumber,
       name,
       membershipNumber: rawMembershipNumber,
+      model: normalizeLooseText(input.model),
+      purchaseMonth: normalizeLooseText(input.purchaseMonth),
+      manufacturingYear: normalizeLooseText(input.manufacturingYear),
+      variant: normalizeLooseText(input.variant),
       vehicleColor: normalizeLooseText(input.vehicleColor),
       vehicleNumber: vehicleNumberInput,
       place,
       address,
+      occupation: normalizeLooseText(input.occupation),
+      mailId: normalizeLooseText(input.mailId),
       bloodGroup: normalizeLooseText(input.bloodGroup).toUpperCase(),
       dateOfBirth,
+      emergencyContact: normalizeLooseText(input.emergencyContact),
+      suggestions: cleanText(input.suggestions),
+      ...(input.isBlocked !== undefined ? { isBlocked: input.isBlocked } : {}),
       source: input.source ?? existingById.source ?? "manual",
       updatedAt: now,
     };
@@ -268,13 +343,22 @@ export async function upsertMember(input: MemberInput, allowUpdate: boolean = tr
     contactNumber: phoneNumber,
     name,
     membershipNumber: finalMembershipNumber,
+    model: normalizeLooseText(input.model),
+    purchaseMonth: normalizeLooseText(input.purchaseMonth),
+    manufacturingYear: normalizeLooseText(input.manufacturingYear),
+    variant: normalizeLooseText(input.variant),
     vehicleColor: normalizeLooseText(input.vehicleColor),
     vehicleNumber: vehicleNumberInput,
     place,
     address,
+    occupation: normalizeLooseText(input.occupation),
+    mailId: normalizeLooseText(input.mailId),
     bloodGroup: normalizeLooseText(input.bloodGroup).toUpperCase(),
     dateOfBirth,
-    source: input.source ?? "manual",
+      emergencyContact: normalizeLooseText(input.emergencyContact),
+      suggestions: cleanText(input.suggestions),
+      ...(input.isBlocked !== undefined ? { isBlocked: input.isBlocked } : {}),
+      source: input.source ?? "manual",
     updatedAt: now,
   };
 
@@ -305,26 +389,47 @@ export async function bulkUpsertMembers(inputs: MemberInput[]) {
   for (let index = 0; index < inputs.length; index += 1) {
     const item = inputs[index];
     const nameStr = item.name ? `${item.name} ` : "";
-    const phoneNumber = normalizePhoneNumber(item.contactNumber ?? item.phoneNumber ?? "");
-    
-    if (!phoneNumber || phoneNumber.length < 10) {
+    const membershipNumber = normalizeMembershipNumber(item.membershipNumber);
+
+    if (!membershipNumber) {
       skipped += 1;
-      const numStr = item.contactNumber || item.phoneNumber || "no number";
-      errors.push(`Row ${index + 2}: ${nameStr}(${numStr}) - invalid contact number`);
+      errors.push(`Row ${index + 2}: ${nameStr.trim() || "(unnamed)"} — membership number is required for upload`);
       continue;
     }
 
-    const exists = await collection.countDocuments({ phoneNumber }, { limit: 1 });
-    const result = await upsertMember({ ...item, phoneNumber, source: "upload" });
-    if (!result.ok) {
-      skipped += 1;
-      errors.push(`Row ${index + 2}: ${nameStr}(${phoneNumber}) - ${result.error ?? "save failed"}`);
-      continue;
-    }
+    // Use membership number as primary key: find existing record
+    const existing = await collection.findOne({ membershipNumber });
 
-    if (exists > 0) {
+    if (existing) {
+      // UPDATE: pass the existing phone number as fallback so validation passes
+      const phoneNumber = normalizePhoneNumber(item.contactNumber ?? item.phoneNumber ?? "");
+      const result = await upsertMember({
+        ...item,
+        id: existing._id.toString(),
+        membershipNumber,
+        contactNumber: phoneNumber || existing.contactNumber || existing.phoneNumber,
+        source: "upload",
+      });
+      if (!result.ok) {
+        skipped += 1;
+        errors.push(`Row ${index + 2}: ${nameStr}(#${membershipNumber}) — ${result.error ?? "update failed"}`);
+        continue;
+      }
       updated += 1;
     } else {
+      // INSERT: contact number required for new members
+      const phoneNumber = normalizePhoneNumber(item.contactNumber ?? item.phoneNumber ?? "");
+      if (!phoneNumber || phoneNumber.length < 10) {
+        skipped += 1;
+        errors.push(`Row ${index + 2}: ${nameStr}(#${membershipNumber}) — valid contact number required for new members`);
+        continue;
+      }
+      const result = await upsertMember({ ...item, membershipNumber, contactNumber: phoneNumber, source: "upload" });
+      if (!result.ok) {
+        skipped += 1;
+        errors.push(`Row ${index + 2}: ${nameStr}(#${membershipNumber}) — ${result.error ?? "insert failed"}`);
+        continue;
+      }
       inserted += 1;
     }
   }
@@ -337,7 +442,7 @@ export async function bulkUpsertMembers(inputs: MemberInput[]) {
   return { inserted, updated, skipped, errors };
 }
 
-export async function listMembers(filters: MemberFilters = {}): Promise<MemberRecord[]> {
+export async function listMembers(filters: MemberFilters = {}): Promise<{ items: MemberRecord[]; total: number }> {
   const collection = await membersCollection();
   const query: Filter<MemberDoc> = {};
   const andFilters: Filter<MemberDoc>[] = [];
@@ -355,6 +460,10 @@ export async function listMembers(filters: MemberFilters = {}): Promise<MemberRe
         { bloodGroup: regex },
         { vehicleColor: regex },
         { dateOfBirth: regex },
+        { occupation: regex },
+        { mailId: regex },
+        { variant: regex },
+        { model: regex },
       ],
     });
   }
@@ -362,12 +471,20 @@ export async function listMembers(filters: MemberFilters = {}): Promise<MemberRe
   const filterMap: Array<[keyof MemberFilters, keyof MemberDoc]> = [
     ["name", "name"],
     ["contactNumber", "phoneNumber"],
+    ["model", "model"],
+    ["purchaseMonth", "purchaseMonth"],
+    ["manufacturingYear", "manufacturingYear"],
+    ["variant", "variant"],
     ["vehicleNumber", "vehicleNumber"],
     ["vehicleColor", "vehicleColor"],
     ["place", "place"],
     ["address", "address"],
+    ["occupation", "occupation"],
+    ["mailId", "mailId"],
     ["bloodGroup", "bloodGroup"],
     ["dateOfBirth", "dateOfBirth"],
+    ["emergencyContact", "emergencyContact"],
+    ["suggestions", "suggestions"],
   ];
 
   for (const [filterKey, docKey] of filterMap) {
@@ -388,14 +505,22 @@ export async function listMembers(filters: MemberFilters = {}): Promise<MemberRe
     query.$and = andFilters;
   }
 
-  const docs = await collection
-    .find(query)
-    .collation({ locale: "en", numericOrdering: true })
-    .sort({ membershipNumber: 1, name: 1, phoneNumber: 1 })
-    .limit(1000)
-    .toArray();
+  const pageSize = filters.limit === 0 ? 0 : (filters.limit ?? 50);
+  const pageNum = Math.max(1, filters.page ?? 1);
+  const skip = pageSize > 0 ? (pageNum - 1) * pageSize : 0;
 
-  return docs.map(mapMemberDoc);
+  const [total, docs] = await Promise.all([
+    collection.countDocuments(query),
+    collection
+      .find(query)
+      .collation({ locale: "en", numericOrdering: true })
+      .sort({ membershipNumber: 1, name: 1, phoneNumber: 1 })
+      .skip(skip)
+      .limit(pageSize > 0 ? pageSize : 0)
+      .toArray(),
+  ]);
+
+  return { items: docs.map(mapMemberDoc), total };
 }
 
 export async function getMemberByPhoneNumber(phoneNumber: string): Promise<MemberRecord | null> {
@@ -467,8 +592,9 @@ export async function getNextMembershipNumber(): Promise<string> {
   let max = 0;
   for (const m of members) {
     const memNo = m.membershipNumber;
-    if (typeof memNo === "string") {
-      const num = parseInt(memNo, 10);
+    if (memNo) {
+      // Use Number() to handle decimals like "123.0" correctly
+      const num = Math.floor(Number(String(memNo)));
       if (!isNaN(num) && num > max) {
         max = num;
       }

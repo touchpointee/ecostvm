@@ -15,7 +15,7 @@ type UpcomingBirthday = {
 export default function AdminBirthdaysPage() {
   const [testName, setTestName] = useState("");
   const [sending, setSending] = useState(false);
-  const [forceSending, setForceSending] = useState(false);
+  const [sendingTodaysWishes, setSendingTodaysWishes] = useState(false);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<UpcomingBirthday[]>([]);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -40,24 +40,24 @@ export default function AdminBirthdaysPage() {
     fetchUpcomingBirthdays();
   }, [fetchUpcomingBirthdays]);
 
-  async function handleForceSend() {
-    setForceSending(true);
+  async function handleSendTodaysWishes() {
+    setSendingTodaysWishes(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/birthdays/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ force: true }),
-      });
+      const res = await fetch("/api/birthdays/send", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send birthday wishes");
-      const { sent, skipped, errors } = data;
-      const errText = errors?.length ? ` Errors: ${errors.join(", ")}` : "";
-      setMessage({ type: sent > 0 ? "success" : "error", text: `Sent: ${sent}, Skipped: ${skipped}.${errText}` });
+      const { sent, skipped, errors, statusMessage } = data;
+      if (typeof statusMessage === "string" && statusMessage) {
+        setMessage({ type: "success", text: statusMessage });
+      } else {
+        const errText = errors?.length ? ` Errors: ${errors.join(", ")}` : "";
+        setMessage({ type: sent > 0 ? "success" : "error", text: `Sent: ${sent}, Skipped: ${skipped}.${errText}` });
+      }
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "Failed to send birthday wishes" });
     } finally {
-      setForceSending(false);
+      setSendingTodaysWishes(false);
     }
   }
 
@@ -99,11 +99,11 @@ export default function AdminBirthdaysPage() {
           </Link>
           <button
             type="button"
-            onClick={handleForceSend}
-            disabled={forceSending}
+            onClick={handleSendTodaysWishes}
+            disabled={sendingTodaysWishes}
             className="rounded-lg bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-400 disabled:opacity-70"
           >
-            {forceSending ? "Sending..." : "Send Today's Wishes"}
+            {sendingTodaysWishes ? "Sending..." : "Send today's wishes"}
           </button>
           <button
             type="button"

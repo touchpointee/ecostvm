@@ -39,6 +39,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const update: Record<string, unknown> = {
       resolvedByCustomer: true,
+      status: "Resolved",
       updatedAt: new Date(),
     };
 

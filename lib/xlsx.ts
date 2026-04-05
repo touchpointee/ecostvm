@@ -1,5 +1,5 @@
 import AdmZip from "adm-zip";
-import { MemberInput, MemberRecord } from "./members";
+import { MemberInput, MemberRecord, normalizeMembershipNumber } from "./members";
 
 function xmlDecode(value: string): string {
   return value
@@ -107,14 +107,27 @@ export function parseMembersFromXlsx(buffer: Buffer): MemberInput[] {
 
   return rows.slice(1).map((row) => ({
     name: getValue(row, ["name", "fullname"]),
-    membershipNumber: getValue(row, ["membershipno", "membershipnumber", "membership"]),
+    membershipNumber: normalizeMembershipNumber(getValue(row, ["membershipno", "membershipnumber", "membership", "member id", "memberid", "member no", "memberno"])),
     contactNumber: getValue(row, ["contactno", "contactnumber", "phonenumber", "mobileno", "mobile"]),
+    model: getValue(row, ["model", "mode", "modelofthevehicle"]),
+    purchaseMonth: getValue(row, ["purchasemonth", "purchase"]),
+    manufacturingYear: getValue(row, ["manufacturingyear", "year", "mfgyear"]),
+    variant: getValue(row, ["variant"]),
     vehicleColor: getValue(row, ["colorofthevehicle", "vehiclecolor", "color"]),
     vehicleNumber: getValue(row, ["vehicleno", "vehiclenumber", "registrationnumber"]),
     place: getValue(row, ["place", "location"]),
     address: getValue(row, ["address", "fulladdress"]),
+    occupation: getValue(row, ["occupation", "job"]),
+    mailId: getValue(row, ["mailid", "email", "mail"]),
     bloodGroup: getValue(row, ["bloodgroup", "blood"]),
     dateOfBirth: getValue(row, ["dateofbirthborndate", "dateofbirth", "borndate", "dob"]),
+    emergencyContact: getValue(row, ["emergencycontact", "emergency"]),
+    suggestions: getValue(row, ["suggestions", "suggestion", "suggestionsifany"]),
+    // "Active" (or empty) → not blocked; anything else (Sold, Inactive, SOLD…) → blocked
+    isBlocked: (() => {
+      const s = getValue(row, ["memberstatus", "status", "membersstatus"]).trim().toLowerCase();
+      return s !== "" && s !== "active";
+    })(),
     source: "upload",
   }));
 }
@@ -144,12 +157,21 @@ export function createMembersWorkbook(members: MemberRecord[]): Buffer {
     "Name",
     "Membership no",
     "Contact no",
+    "Model",
+    "Purchase Month",
+    "Manufacturing Year",
+    "Variant",
     "Color of the vehicle",
     "Vehicle no",
     "Place",
     "Address",
+    "Occupation",
+    "Mail ID",
     "Blood Group",
     "Date of birth ( Born date )",
+    "Emergency Contact",
+    "Suggestions",
+    "Status",
   ];
 
   const rows = [
@@ -158,12 +180,21 @@ export function createMembersWorkbook(members: MemberRecord[]): Buffer {
       member.name,
       member.membershipNumber,
       member.contactNumber,
+      member.model,
+      member.purchaseMonth,
+      member.manufacturingYear,
+      member.variant,
       member.vehicleColor,
       member.vehicleNumber,
       member.place,
       member.address,
+      member.occupation,
+      member.mailId,
       member.bloodGroup,
       member.dateOfBirth,
+      member.emergencyContact,
+      member.suggestions,
+      member.isBlocked ? "Blocked" : "Active",
     ]),
   ];
 

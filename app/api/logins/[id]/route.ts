@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteMemberById, updateMemberBlockStatus } from "@/lib/members";
+import { deleteMemberById, getMemberById, updateMemberBlockStatus } from "@/lib/members";
 
 const ADMIN_COOKIE = "ecostvm_admin";
 
@@ -9,6 +9,20 @@ function requireAdmin(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   return null;
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const unauthorized = requireAdmin(request);
+  if (unauthorized) return unauthorized;
+
+  const member = await getMemberById(params.id);
+  if (!member) {
+    return NextResponse.json({ error: "Member not found." }, { status: 404 });
+  }
+  return NextResponse.json({ member });
 }
 
 export async function PUT(

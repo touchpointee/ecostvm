@@ -20,21 +20,22 @@ type BirthdayWishLogDoc = {
   _id?: ObjectId;
   memberId: ObjectId;
   birthdayKey: string;
-  name: string;
-  membershipNumber: string;
-  dateOfBirth: string;
   groupJid: string;
-  sentAt: Date;
-};
-
-type BirthdaySendOptions = {
-  force?: boolean;
+  /** Set when a worker holds the send slot before WhatsApp returns */
+  reservedAt?: Date;
+  whatsappMessageId?: string;
+  name?: string;
+  membershipNumber?: string;
+  dateOfBirth?: string;
+  sentAt?: Date;
 };
 
 export type BirthdaySendResult = {
   sent: number;
   skipped: number;
   errors: string[];
+  /** Set when no new messages were sent but today’s birthday members were all skipped as already handled */
+  statusMessage?: string;
 };
 
 export type UpcomingBirthday = {
@@ -128,6 +129,7 @@ async function listMembersWithBirthday(month: number, day: number): Promise<Birt
     .collection<BirthdayMemberDoc>("logins")
     .find({
       dateOfBirth: { $exists: true, $ne: "" },
+      isBlocked: { $ne: true },
     } as Filter<BirthdayMemberDoc>)
     .toArray();
 
@@ -137,20 +139,90 @@ async function listMembersWithBirthday(month: number, day: number): Promise<Birt
   });
 }
 
-async function wasBirthdayWishSent(memberId: ObjectId, birthdayKey: string): Promise<boolean> {
-  const db = await getDb();
-  const existing = await db
-    .collection<BirthdayWishLogDoc>(BIRTHDAY_COLLECTION)
-    .countDocuments({ memberId, birthdayKey }, { limit: 1 });
-  return existing > 0;
+const RESERVATION_STALE_MS = 10 * 60 * 1000;
+
+function isMongoDuplicateKeyError(e: unknown): boolean {
+  return typeof e === "object" && e !== null && "code" in e && (e as { code: number }).code === 11000;
 }
 
-async function recordBirthdayWish(doc: BirthdayWishLogDoc) {
+type ClaimSlotResult = "claimed" | "already_sent" | "in_progress";
+
+/**
+ * Reserves exactly one send per (member, calendar day) before calling WhatsApp, so cron + manual
+ * clicks cannot double-send. Legacy rows without whatsappMessageId but with sentAt still count as sent.
+ */
+async function tryClaimBirthdayWishSlot(
+  memberId: ObjectId,
+  birthdayKey: string,
+  groupJid: string
+): Promise<ClaimSlotResult> {
+  const db = await getDb();
+  const col = db.collection<BirthdayWishLogDoc>(BIRTHDAY_COLLECTION);
+
+  const existing = await col.findOne({ memberId, birthdayKey });
+  if (existing?.sentAt) {
+    return "already_sent";
+  }
+  if (existing?.whatsappMessageId) {
+    return "already_sent";
+  }
+
+  if (existing && !existing.sentAt) {
+    const t = existing.reservedAt?.getTime() ?? 0;
+    if (t > 0 && Date.now() - t < RESERVATION_STALE_MS) {
+      return "in_progress";
+    }
+    await col.deleteOne({ _id: existing._id! });
+  }
+
+  try {
+    await col.insertOne({
+      memberId,
+      birthdayKey,
+      groupJid,
+      reservedAt: new Date(),
+    });
+    return "claimed";
+  } catch (e) {
+    if (isMongoDuplicateKeyError(e)) {
+      return "in_progress";
+    }
+    throw e;
+  }
+}
+
+async function releaseBirthdayWishReservation(memberId: ObjectId, birthdayKey: string): Promise<void> {
+  const db = await getDb();
+  await db.collection<BirthdayWishLogDoc>(BIRTHDAY_COLLECTION).deleteOne({
+    memberId,
+    birthdayKey,
+    whatsappMessageId: { $exists: false },
+    sentAt: { $exists: false },
+  });
+}
+
+async function finalizeBirthdayWish(args: {
+  memberId: ObjectId;
+  birthdayKey: string;
+  groupJid: string;
+  whatsappMessageId: string;
+  name: string;
+  membershipNumber: string;
+  dateOfBirth: string;
+}): Promise<void> {
   const db = await getDb();
   await db.collection<BirthdayWishLogDoc>(BIRTHDAY_COLLECTION).updateOne(
-    { memberId: doc.memberId, birthdayKey: doc.birthdayKey },
-    { $setOnInsert: doc },
-    { upsert: true }
+    { memberId: args.memberId, birthdayKey: args.birthdayKey },
+    {
+      $set: {
+        groupJid: args.groupJid,
+        whatsappMessageId: args.whatsappMessageId,
+        name: args.name,
+        membershipNumber: args.membershipNumber,
+        dateOfBirth: args.dateOfBirth,
+        sentAt: new Date(),
+      },
+    }
   );
 }
 
@@ -158,7 +230,7 @@ function buildBirthdayCaption(name: string): string {
   return `Happy Birthday ${name}! Wish from EcoSport Owners Club.`;
 }
 
-export async function sendBirthdayWishes(options: BirthdaySendOptions = {}): Promise<BirthdaySendResult> {
+export async function sendBirthdayWishes(): Promise<BirthdaySendResult> {
   const { month, day, key: birthdayKey } = getLocalDateParts();
   const result: BirthdaySendResult = { sent: 0, skipped: 0, errors: [] };
 
@@ -189,29 +261,50 @@ export async function sendBirthdayWishes(options: BirthdaySendOptions = {}): Pro
 
   for (const member of members) {
     try {
-      if (!options.force && (await wasBirthdayWishSent(member._id, birthdayKey))) {
+      const claim = await tryClaimBirthdayWishSlot(member._id, birthdayKey, groupJid);
+      if (claim !== "claimed") {
         result.skipped += 1;
         continue;
       }
 
       const name = normalizeMemberName(member.name);
-      const cardBuffer = await renderBirthdayCard(name);
-      await sendComposing(groupJid, 1500);
-      await sendImageToGroupWithRetry(groupJid, cardBuffer, "birthday-wish.png", buildBirthdayCaption(name));
-      await recordBirthdayWish({
-        memberId: member._id,
-        birthdayKey,
-        name,
-        membershipNumber: member.membershipNumber ?? "",
-        dateOfBirth: member.dateOfBirth ?? "",
-        groupJid,
-        sentAt: new Date(),
-      });
-      result.sent += 1;
+      try {
+        const cardBuffer = await renderBirthdayCard(name);
+        await sendComposing(groupJid, 1500);
+        const messageId = await sendImageToGroupWithRetry(
+          groupJid,
+          cardBuffer,
+          "birthday-wish.png",
+          buildBirthdayCaption(name)
+        );
+        await finalizeBirthdayWish({
+          memberId: member._id,
+          birthdayKey,
+          groupJid,
+          whatsappMessageId: messageId ?? "",
+          name,
+          membershipNumber: member.membershipNumber ?? "",
+          dateOfBirth: member.dateOfBirth ?? "",
+        });
+        result.sent += 1;
+      } catch (sendErr) {
+        await releaseBirthdayWishReservation(member._id, birthdayKey);
+        throw sendErr;
+      }
     } catch (error) {
       const label = normalizeMemberName(member.name);
       result.errors.push(`${label}: ${error instanceof Error ? error.message : "Failed to send birthday wish"}`);
     }
+  }
+
+  if (
+    result.sent === 0 &&
+    result.skipped > 0 &&
+    result.errors.length === 0 &&
+    members.length > 0
+  ) {
+    result.statusMessage =
+      "Birthday wishes were already shared in the group today (once per member). The scheduler will not send duplicates.";
   }
 
   return result;
@@ -237,6 +330,7 @@ export async function listUpcomingBirthdays(limit = 50): Promise<UpcomingBirthda
     .collection<BirthdayMemberDoc>("logins")
     .find({
       dateOfBirth: { $exists: true, $ne: "" },
+      isBlocked: { $ne: true },
     } as Filter<BirthdayMemberDoc>)
     .toArray();
 
