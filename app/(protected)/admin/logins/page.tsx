@@ -179,6 +179,9 @@ export default function LoginsPage() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [migrating, setMigrating] = useState(false);
+  const [clearOpen, setClearOpen] = useState(false);
+  const [clearPhrase, setClearPhrase] = useState("");
+  const [clearing, setClearing] = useState(false);
   const [uploadLogs, setUploadLogs] = useState<UploadLog[]>([]);
   const [logsOpen, setLogsOpen] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
@@ -305,6 +308,28 @@ export default function LoginsPage() {
     }
   }
 
+  async function handleClearAll() {
+    setClearing(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/admin/clear-members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE ALL MEMBERS" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setMessage({ type: "error", text: data.error || "Failed to clear." }); return; }
+      setMessage({ type: "success", text: data.message });
+      setClearOpen(false);
+      setClearPhrase("");
+      await fetchMembers(1);
+    } catch {
+      setMessage({ type: "error", text: "Something went wrong." });
+    } finally {
+      setClearing(false);
+    }
+  }
+
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!uploadFile) {
@@ -380,6 +405,13 @@ export default function LoginsPage() {
               className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white disabled:opacity-60"
             >
               {migrating ? "Fixing…" : "Fix Membership No."}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setClearOpen(true); setClearPhrase(""); }}
+              className="rounded-lg border-2 border-red-600 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white"
+            >
+              🗑 Clear All
             </button>
           </div>
         </div>
@@ -810,6 +842,64 @@ export default function LoginsPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Clear All Confirmation Modal ── */}
+      {clearOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => { if (!clearing) { setClearOpen(false); setClearPhrase(""); } }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border-2 border-red-600 bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">⚠️</span>
+              <div>
+                <h2 className="text-base font-bold text-black">Delete ALL members?</h2>
+                <p className="text-sm text-black/60">This cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border-2 border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              Every member record will be permanently deleted from the database. Members will no longer be able to log in.
+            </div>
+
+            <div className="mt-5">
+              <label className="block text-sm font-semibold text-black">
+                Type <span className="font-mono text-red-600">DELETE ALL MEMBERS</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={clearPhrase}
+                onChange={(e) => setClearPhrase(e.target.value)}
+                placeholder="DELETE ALL MEMBERS"
+                className="mt-2 block w-full rounded-lg border-2 border-black px-3 py-2 font-mono text-sm text-black focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleClearAll}
+                disabled={clearing || clearPhrase !== "DELETE ALL MEMBERS"}
+                className="flex-1 rounded-lg border-2 border-red-600 bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {clearing ? "Deleting…" : "Yes, delete everything"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setClearOpen(false); setClearPhrase(""); }}
+                disabled={clearing}
+                className="flex-1 rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
