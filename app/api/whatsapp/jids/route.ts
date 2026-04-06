@@ -9,11 +9,17 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { appreciationGroupJid, escalationGroupJid, birthdayGroupJid } = body;
-    const updates: { appreciationGroupJid?: string; escalationGroupJid?: string; birthdayGroupJid?: string } = {};
+    const { appreciationGroupJid, escalationGroupJid, birthdayGroupJid, registrationGroupJid } = body;
+    const updates: {
+      appreciationGroupJid?: string;
+      escalationGroupJid?: string;
+      birthdayGroupJid?: string;
+      registrationGroupJid?: string;
+    } = {};
     if (typeof appreciationGroupJid === "string") updates.appreciationGroupJid = appreciationGroupJid;
     if (typeof escalationGroupJid === "string") updates.escalationGroupJid = escalationGroupJid;
     if (typeof birthdayGroupJid === "string") updates.birthdayGroupJid = birthdayGroupJid;
+    if (typeof registrationGroupJid === "string") updates.registrationGroupJid = registrationGroupJid;
     const jids = await saveJids(updates);
     return NextResponse.json(jids);
   } catch (e) {

@@ -11,6 +11,7 @@ export default function AdminDashboardPage() {
   const [appreciationJid, setAppreciationJid] = useState("");
   const [escalationJid, setEscalationJid] = useState("");
   const [birthdayJid, setBirthdayJid] = useState("");
+  const [registrationJid, setRegistrationJid] = useState("");
   const [savingJids, setSavingJids] = useState(false);
   const [jidsSaved, setJidsSaved] = useState(false);
   const [sendingBirthdayWishes, setSendingBirthdayWishes] = useState(false);
@@ -69,10 +70,12 @@ export default function AdminDashboardPage() {
       const a = data.appreciationGroupJid ?? "";
       const e = data.escalationGroupJid ?? "";
       const b = data.birthdayGroupJid ?? "";
+      const r = data.registrationGroupJid ?? "";
       setAppreciationJid(a);
       setEscalationJid(e);
       setBirthdayJid(b);
-      if (a || e || b) setJidsSaved(true);
+      setRegistrationJid(r);
+      if (a || e || b || r) setJidsSaved(true);
     } catch {
       setAppreciationJid("");
       setEscalationJid("");
@@ -266,6 +269,7 @@ export default function AdminDashboardPage() {
           appreciationGroupJid: appreciationJid.trim(),
           escalationGroupJid: escalationJid.trim(),
           birthdayGroupJid: birthdayJid.trim(),
+          registrationGroupJid: registrationJid.trim(),
         }),
       });
       if (!res.ok) throw new Error("Save failed");
@@ -540,6 +544,7 @@ export default function AdminDashboardPage() {
                   { label: "Appreciation group JID", value: appreciationJid },
                   { label: "Escalation group JID", value: escalationJid },
                   { label: "Birthday wishes group JID", value: birthdayJid },
+                  { label: "New registration group JID", value: registrationJid },
                 ].map(({ label, value }) => (
                   <div key={label} className="rounded-lg border-2 border-black bg-white px-3 py-2.5">
                     <p className="text-xs font-semibold uppercase tracking-wide text-black/50">{label}</p>
@@ -591,6 +596,18 @@ export default function AdminDashboardPage() {
                     className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
                   />
                 </div>
+                <div>
+                  <label htmlFor="registrationJid" className="block font-medium text-black">New registration group JID</label>
+                  <p className="text-xs text-black/50 mb-1">Group that receives a notification whenever someone submits the registration form.</p>
+                  <input
+                    id="registrationJid"
+                    type="text"
+                    value={registrationJid}
+                    onChange={(e) => setRegistrationJid(e.target.value)}
+                    placeholder="123456789@g.us"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+                  />
+                </div>
                 <div className="flex items-center gap-3">
                   <button
                     type="submit"
@@ -599,7 +616,7 @@ export default function AdminDashboardPage() {
                   >
                     {savingJids ? "Saving…" : "Save JIDs"}
                   </button>
-                  {(appreciationJid || escalationJid || birthdayJid) && (
+                  {(appreciationJid || escalationJid || birthdayJid || registrationJid) && (
                     <button
                       type="button"
                       onClick={() => setJidsSaved(true)}

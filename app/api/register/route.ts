@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPendingRegistration } from "@/lib/registrations";
 import { getDb } from "@/lib/mongo";
+import { getJids } from "@/lib/jids";
+import { connect, sendToGroupWithRetry } from "@/lib/whatsapp";
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,6 +77,35 @@ export async function POST(request: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
+
+    // Notify admin group on WhatsApp (best-effort – never block registration on WA failure)
+    const adminUrl = process.env.PUBLIC_FEEDBACK_URL
+      ? new URL("/admin/registrations", process.env.PUBLIC_FEEDBACK_URL).toString()
+      : "/admin/registrations";
+
+    getJids()
+      .then(async (jids) => {
+        const groupJid = jids.registrationGroupJid?.trim();
+        if (!groupJid) return;
+        const name = String(body.name ?? "").trim();
+        const place = String(body.place ?? "").trim();
+        const vehicleNumber = String(body.vehicleNumber ?? "").trim().toUpperCase();
+        const message = [
+          "🆕 *New Member Registration*",
+          "",
+          `👤 Name: ${name}`,
+          place ? `📍 Place: ${place}` : undefined,
+          vehicleNumber ? `🚗 Vehicle: ${vehicleNumber}` : undefined,
+          "",
+          "Please check the admin portal to review and confirm this registration.",
+          adminUrl,
+        ]
+          .filter((line) => line !== undefined)
+          .join("\n");
+        await connect();
+        await sendToGroupWithRetry(groupJid, message);
+      })
+      .catch((e) => console.error("[api/register] group notification failed:", e));
 
     return NextResponse.json({ success: true });
   } catch (e) {

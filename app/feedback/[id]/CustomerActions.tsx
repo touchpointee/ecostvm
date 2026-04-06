@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Phase = "idle" | "expanded" | "submitting" | "done" | "error";
 
@@ -15,6 +16,7 @@ export default function CustomerActions({
   token: string;
   resolvedByCustomer: boolean;
 }) {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>(resolvedByCustomer ? "done" : "idle");
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
@@ -41,6 +43,8 @@ export default function CustomerActions({
         return;
       }
       setPhase("done");
+      // Refresh the server component so the status card updates to "Resolved"
+      router.refresh();
     } catch {
       setErrorText("Something went wrong. Please try again.");
       setPhase("expanded");

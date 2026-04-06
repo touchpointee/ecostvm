@@ -89,6 +89,10 @@ export default function MemberDetailPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmBlock, setConfirmBlock] = useState(false);
+  const [togglingBlock, setTogglingBlock] = useState(false);
+  const [confirmSold, setConfirmSold] = useState(false);
+  const [togglingSold, setTogglingSold] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const fetchMember = useCallback(async () => {
@@ -180,6 +184,7 @@ export default function MemberDetailPage() {
 
   async function handleToggleBlock() {
     if (!member) return;
+    setTogglingBlock(true);
     try {
       const res = await fetch(`/api/logins/${id}`, {
         method: "PUT",
@@ -187,15 +192,19 @@ export default function MemberDetailPage() {
         body: JSON.stringify({ blocked: !member.isBlocked }),
       });
       if (!res.ok) throw new Error("Failed");
+      setConfirmBlock(false);
       setMessage({ type: "success", text: member.isBlocked ? "Member unblocked." : "Member blocked." });
       await fetchMember();
     } catch {
       setMessage({ type: "error", text: "Failed to update block status." });
+    } finally {
+      setTogglingBlock(false);
     }
   }
 
   async function handleToggleSold() {
     if (!member) return;
+    setTogglingSold(true);
     try {
       const res = await fetch(`/api/logins/${id}`, {
         method: "PUT",
@@ -203,10 +212,13 @@ export default function MemberDetailPage() {
         body: JSON.stringify({ sold: !member.isSold }),
       });
       if (!res.ok) throw new Error("Failed");
+      setConfirmSold(false);
       setMessage({ type: "success", text: member.isSold ? "Sold status removed." : "Member marked as Sold." });
       await fetchMember();
     } catch {
       setMessage({ type: "error", text: "Failed to update sold status." });
+    } finally {
+      setTogglingSold(false);
     }
   }
 
@@ -283,7 +295,7 @@ export default function MemberDetailPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={handleToggleBlock}
+                  onClick={() => setConfirmBlock(true)}
                   className={`rounded-lg border-2 border-black px-4 py-2 text-sm font-semibold ${
                     member.isBlocked
                       ? "bg-white text-black hover:bg-black hover:text-white"
@@ -294,7 +306,7 @@ export default function MemberDetailPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={handleToggleSold}
+                  onClick={() => setConfirmSold(true)}
                   className={`rounded-lg border-2 px-4 py-2 text-sm font-semibold ${
                     member.isSold
                       ? "border-orange-500 bg-white text-orange-600 hover:bg-orange-500 hover:text-white"
@@ -567,6 +579,88 @@ export default function MemberDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Block / Unblock confirmation dialog */}
+      {confirmBlock && member && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => { if (!togglingBlock) setConfirmBlock(false); }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border-2 border-black bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-black">
+              {member.isBlocked ? "Unblock member?" : "Block member?"}
+            </h2>
+            <p className="mt-2 text-sm text-black/70">
+              {member.isBlocked
+                ? <>This will restore access for <strong>{member.name}</strong>. They will be able to log in again.</>
+                : <>This will block <strong>{member.name}</strong> from logging in and submitting feedback.</>}
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleToggleBlock}
+                disabled={togglingBlock}
+                className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-70 ${
+                  member.isBlocked ? "bg-black hover:bg-gray-800" : "bg-black hover:bg-red-700"
+                }`}
+              >
+                {togglingBlock ? "Saving…" : member.isBlocked ? "Yes, unblock" : "Yes, block"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmBlock(false)}
+                disabled={togglingBlock}
+                className="flex-1 rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-70"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Sold / Mark Active confirmation dialog */}
+      {confirmSold && member && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => { if (!togglingSold) setConfirmSold(false); }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border-2 border-orange-500 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-black">
+              {member.isSold ? "Mark as Active?" : "Mark vehicle as Sold?"}
+            </h2>
+            <p className="mt-2 text-sm text-black/70">
+              {member.isSold
+                ? <>This will restore <strong>{member.name}</strong> to active status.</>
+                : <>This will mark <strong>{member.name}</strong>&apos;s vehicle as sold. They will not be able to submit service feedback.</>}
+            </p>
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={handleToggleSold}
+                disabled={togglingSold}
+                className="flex-1 rounded-lg border-2 border-orange-500 bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-70"
+              >
+                {togglingSold ? "Saving…" : member.isSold ? "Yes, mark active" : "Yes, mark sold"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmSold(false)}
+                disabled={togglingSold}
+                className="flex-1 rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white disabled:opacity-70"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation dialog */}
       {confirmDelete && (
