@@ -37,6 +37,7 @@ export default function AdminLayout({
 
   const nav = [
     { href: "/admin", label: "Dashboard" },
+    { href: "/admin/whatsapp", label: "WhatsApp Config" },
     { href: "/admin/feedbacks", label: "Feedbacks" },
     { href: "/admin/registrations", label: "Registrations", badge: pendingCount },
     { href: "/admin/logins", label: "Members" },

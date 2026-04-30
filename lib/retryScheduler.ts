@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "./mongo";
-import { getJids } from "./jids";
+import { getJids, parseGroupJids } from "./jids";
 import {
   connect,
   sendComposing,
@@ -52,21 +52,26 @@ async function retryGroupMessages(): Promise<void> {
       const _id = doc._id as ObjectId;
       const id = _id.toString();
       const type = doc.type === "Escalation" ? "Escalation" : "Appreciation";
-      const groupJid =
+      const groupJids =
         type === "Escalation"
-          ? jids.escalationGroupJid
-          : jids.appreciationGroupJid || jids.escalationGroupJid;
+          ? parseGroupJids(jids.escalationGroupJid)
+          : [
+              ...parseGroupJids(jids.appreciationGroupJid),
+              ...parseGroupJids(jids.escalationGroupJid),
+            ].filter((jid, index, all) => all.indexOf(jid) === index);
 
       let whatsappSent = false;
       let whatsappError: string | null = null;
 
-      if (!groupJid?.trim()) {
+      if (groupJids.length === 0) {
         whatsappError = "No group JID configured";
       } else {
         const text = formatGroupMessage(id);
         try {
-          await sendComposing(groupJid.trim(), 3000);
-          await sendToGroupWithRetry(groupJid.trim(), text);
+          for (const groupJid of groupJids) {
+            await sendComposing(groupJid, 3000);
+            await sendToGroupWithRetry(groupJid, text);
+          }
           whatsappSent = true;
         } catch (err) {
           console.error("[retryScheduler] group send failed", err);

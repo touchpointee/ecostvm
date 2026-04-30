@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPendingRegistration } from "@/lib/registrations";
 import { getDb } from "@/lib/mongo";
-import { getJids } from "@/lib/jids";
+import { getJids, parseGroupJids } from "@/lib/jids";
 import { connect, sendToGroupWithRetry } from "@/lib/whatsapp";
 
 export async function POST(request: NextRequest) {
@@ -85,8 +85,8 @@ export async function POST(request: NextRequest) {
 
     getJids()
       .then(async (jids) => {
-        const groupJid = jids.registrationGroupJid?.trim();
-        if (!groupJid) return;
+        const groupJids = parseGroupJids(jids.registrationGroupJid);
+        if (groupJids.length === 0) return;
         const name = String(body.name ?? "").trim();
         const place = String(body.place ?? "").trim();
         const vehicleNumber = String(body.vehicleNumber ?? "").trim().toUpperCase();
@@ -103,7 +103,9 @@ export async function POST(request: NextRequest) {
           .filter((line) => line !== undefined)
           .join("\n");
         await connect();
-        await sendToGroupWithRetry(groupJid, message);
+        for (const groupJid of groupJids) {
+          await sendToGroupWithRetry(groupJid, message);
+        }
       })
       .catch((e) => console.error("[api/register] group notification failed:", e));
 

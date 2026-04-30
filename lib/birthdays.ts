@@ -1,6 +1,6 @@
 import { Filter, ObjectId } from "mongodb";
 import { getDb } from "./mongo";
-import { getJids } from "./jids";
+import { firstGroupJid, getJids, parseGroupJids } from "./jids";
 import { renderBirthdayCard } from "./birthdayCard";
 import { connect, sendComposing, sendImageToGroupWithRetry } from "./whatsapp";
 
@@ -237,8 +237,8 @@ export async function sendBirthdayWishes(): Promise<BirthdaySendResult> {
   await ensureBirthdayWishIndexes();
 
   const jids = await getJids();
-  const groupJid = jids.birthdayGroupJid.trim();
-  if (!groupJid) {
+  const groupJids = parseGroupJids(jids.birthdayGroupJid);
+  if (groupJids.length === 0) {
     return {
       sent: 0,
       skipped: 0,
@@ -261,6 +261,7 @@ export async function sendBirthdayWishes(): Promise<BirthdaySendResult> {
 
   for (const member of members) {
     try {
+      const groupJid = groupJids[0];
       const claim = await tryClaimBirthdayWishSlot(member._id, birthdayKey, groupJid);
       if (claim !== "claimed") {
         result.skipped += 1;
@@ -270,13 +271,27 @@ export async function sendBirthdayWishes(): Promise<BirthdaySendResult> {
       const name = normalizeMemberName(member.name);
       try {
         const cardBuffer = await renderBirthdayCard(name);
-        await sendComposing(groupJid, 1500);
-        const messageId = await sendImageToGroupWithRetry(
-          groupJid,
-          cardBuffer,
-          "birthday-wish.png",
-          buildBirthdayCaption(name)
-        );
+        let messageId = "";
+        const failedGroups: string[] = [];
+        for (const jid of groupJids) {
+          try {
+            await sendComposing(jid, 1500);
+            const currentMessageId = await sendImageToGroupWithRetry(
+              jid,
+              cardBuffer,
+              "birthday-wish.png",
+              buildBirthdayCaption(name)
+            );
+            if (!messageId && currentMessageId) {
+              messageId = currentMessageId;
+            }
+          } catch {
+            failedGroups.push(jid);
+          }
+        }
+        if (!messageId) {
+          throw new Error("Failed to send birthday wish to every configured group");
+        }
         await finalizeBirthdayWish({
           memberId: member._id,
           birthdayKey,
@@ -287,6 +302,9 @@ export async function sendBirthdayWishes(): Promise<BirthdaySendResult> {
           dateOfBirth: member.dateOfBirth ?? "",
         });
         result.sent += 1;
+        if (failedGroups.length > 0) {
+          result.errors.push(`${name}: Failed to send to ${failedGroups.length} configured birthday group(s).`);
+        }
       } catch (sendErr) {
         await releaseBirthdayWishReservation(member._id, birthdayKey);
         throw sendErr;
@@ -313,7 +331,7 @@ export async function sendBirthdayWishes(): Promise<BirthdaySendResult> {
 export async function sendBirthdayTestWish(name: string): Promise<void> {
   const trimmedName = normalizeMemberName(name);
   const jids = await getJids();
-  const groupJid = jids.birthdayGroupJid.trim();
+  const groupJid = firstGroupJid(jids.birthdayGroupJid);
   if (!groupJid) {
     throw new Error("Birthday group JID is not configured.");
   }

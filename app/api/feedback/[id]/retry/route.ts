@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongo";
-import { getJids } from "@/lib/jids";
+import { getJids, parseGroupJids } from "@/lib/jids";
 import { getConnectionStatus, sendComposing, sendToGroupWithRetry } from "@/lib/whatsapp";
 
 const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
@@ -61,10 +61,15 @@ export async function POST(
 
     const jids = await getJids();
     const type = feedback.type === "Escalation" ? "Escalation" : "Appreciation";
-    const groupJid =
-      type === "Escalation" ? jids.escalationGroupJid : jids.appreciationGroupJid || jids.escalationGroupJid;
+    const groupJids =
+      type === "Escalation"
+        ? parseGroupJids(jids.escalationGroupJid)
+        : [
+            ...parseGroupJids(jids.appreciationGroupJid),
+            ...parseGroupJids(jids.escalationGroupJid),
+          ].filter((jid, index, all) => all.indexOf(jid) === index);
 
-    if (!groupJid?.trim()) {
+    if (groupJids.length === 0) {
       await db.collection("feedback").updateOne(
         { _id },
         {
@@ -94,8 +99,10 @@ export async function POST(
     let whatsappError: string | null = null;
 
     try {
-      await sendComposing(groupJid.trim(), 3000);
-      await sendToGroupWithRetry(groupJid.trim(), text);
+      for (const groupJid of groupJids) {
+        await sendComposing(groupJid, 3000);
+        await sendToGroupWithRetry(groupJid, text);
+      }
       whatsappSent = true;
     } catch (err) {
       console.error("[api/feedback/:id/retry] WhatsApp send failed", err);

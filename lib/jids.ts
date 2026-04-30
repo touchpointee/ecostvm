@@ -36,3 +36,20 @@ export async function saveJids(jids: Partial<StoredJids>): Promise<StoredJids> {
   await writeFile(JIDS_FILE, JSON.stringify(updated, null, 2), "utf-8");
   return updated;
 }
+
+export function parseGroupJids(value: string | undefined | null): string[] {
+  if (!value) return [];
+
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+export function firstGroupJid(value: string | undefined | null): string {
+  return parseGroupJids(value)[0] ?? "";
+}

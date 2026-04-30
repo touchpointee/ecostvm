@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJids } from "@/lib/jids";
+import { getJids, parseGroupJids } from "@/lib/jids";
 import {
   connect,
   sendComposing,
@@ -154,15 +154,18 @@ export async function POST(request: NextRequest) {
 
     // ── Send to admin WhatsApp group (best-effort) ──────────────────────────
     const jids = await getJids();
-    const groupJid =
+    const groupJids =
       type === "Escalation"
-        ? jids.escalationGroupJid
-        : jids.appreciationGroupJid || jids.escalationGroupJid;
+        ? parseGroupJids(jids.escalationGroupJid)
+        : [
+            ...parseGroupJids(jids.appreciationGroupJid),
+            ...parseGroupJids(jids.escalationGroupJid),
+          ].filter((jid, index, all) => all.indexOf(jid) === index);
 
     let whatsappSent = false;
     let whatsappError: string | null = null;
 
-    if (groupJid?.trim()) {
+    if (groupJids.length > 0) {
       const text = formatGroupMessage(feedbackId, {
         name,
         contactNumber,
@@ -173,9 +176,11 @@ export async function POST(request: NextRequest) {
       });
       try {
         await connect();
-        await sendComposing(groupJid.trim(), 3000);
-        await randomDelay(1000, 3000);
-        await sendToGroupWithRetry(groupJid.trim(), text);
+        for (const groupJid of groupJids) {
+          await sendComposing(groupJid, 3000);
+          await randomDelay(1000, 3000);
+          await sendToGroupWithRetry(groupJid, text);
+        }
         whatsappSent = true;
       } catch (err) {
         console.error("[api/feedback] group WhatsApp send failed", err);
