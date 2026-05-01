@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
     const trackingCode = String(Math.floor(10000 + Math.random() * 90000));
+    const initialStatus = type === "Appreciation" ? "Resolved" : "Open";
     const insertResult = await db.collection("feedback").insertOne({
       name: String(name).trim(),
       contactNumber: contactNumber != null ? String(contactNumber).trim() : undefined,
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
       pickupDrop: pickupDrop != null ? String(pickupDrop) : undefined,
       concerns: String(concerns).trim(),
       type: String(type),
-      status: "Open",
+      status: initialStatus,
       review: null,
       trackingCode,
       resolvedByCustomer: false,

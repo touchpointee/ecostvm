@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 type FeedbackStatus = "Open" | "In Progress" | "Resolved" | "Closed";
+type FeedbackType = "Appreciation" | "Escalation";
 
 const STATUSES: FeedbackStatus[] = ["Open", "In Progress", "Resolved", "Closed"];
+const FEEDBACK_TYPES: FeedbackType[] = ["Appreciation", "Escalation"];
 
 const STATUS_STYLES: Record<FeedbackStatus, string> = {
   Open: "bg-white border border-black text-black",
@@ -52,23 +54,84 @@ export default function FeedbacksPage() {
     text: string;
   } | null>(null);
   const [nameFilter, setNameFilter] = useState("");
+  const [contactFilter, setContactFilter] = useState("");
+  const [vehicleFilter, setVehicleFilter] = useState("");
+  const [serviceDateFilter, setServiceDateFilter] = useState("");
   const [advisorFilter, setAdvisorFilter] = useState("");
+  const [pickupDropFilter, setPickupDropFilter] = useState("");
+  const [concernsFilter, setConcernsFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState<FeedbackType | "">("");
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "">("");
+  const [groupWaFilter, setGroupWaFilter] = useState<"" | "true" | "false">("");
+  const [customerWaFilter, setCustomerWaFilter] = useState<"" | "true" | "false">("");
+  const [reviewRatingFilter, setReviewRatingFilter] = useState("");
+
+  function getCurrentFilters() {
+    return {
+      name: nameFilter,
+      contactNumber: contactFilter,
+      vehicleNumber: vehicleFilter,
+      serviceDate: serviceDateFilter,
+      advisor: advisorFilter,
+      pickupDrop: pickupDropFilter,
+      concerns: concernsFilter,
+      type: typeFilter,
+      status: statusFilter,
+      whatsappSent: groupWaFilter,
+      customerWhatsappSent: customerWaFilter,
+      reviewRating: reviewRatingFilter,
+    };
+  }
+
+  function buildFilterParams() {
+    const params = new URLSearchParams();
+    const filters = getCurrentFilters();
+    if (filters.name.trim()) params.set("name", filters.name.trim());
+    if (filters.contactNumber.trim()) params.set("contactNumber", filters.contactNumber.trim());
+    if (filters.vehicleNumber.trim()) params.set("vehicleNumber", filters.vehicleNumber.trim());
+    if (filters.serviceDate.trim()) params.set("serviceDate", filters.serviceDate.trim());
+    if (filters.advisor.trim()) params.set("advisor", filters.advisor.trim());
+    if (filters.pickupDrop.trim()) params.set("pickupDrop", filters.pickupDrop.trim());
+    if (filters.concerns.trim()) params.set("concerns", filters.concerns.trim());
+    if (filters.type) params.set("type", filters.type);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.whatsappSent) params.set("whatsappSent", filters.whatsappSent);
+    if (filters.customerWhatsappSent) params.set("customerWhatsappSent", filters.customerWhatsappSent);
+    if (filters.reviewRating.trim()) params.set("reviewRating", filters.reviewRating.trim());
+    return params;
+  }
 
   const fetchItems = useCallback(
     async (filters?: {
       name?: string;
+      contactNumber?: string;
+      vehicleNumber?: string;
+      serviceDate?: string;
       advisor?: string;
+      pickupDrop?: string;
+      concerns?: string;
+      type?: string;
       status?: string;
+      whatsappSent?: string;
+      customerWhatsappSent?: string;
+      reviewRating?: string;
     }) => {
       setLoading(true);
       setMessage(null);
       try {
         const params = new URLSearchParams({ limit: "500" });
         if (filters?.name?.trim()) params.set("name", filters.name.trim());
-        if (filters?.advisor?.trim())
-          params.set("advisor", filters.advisor.trim());
+        if (filters?.contactNumber?.trim()) params.set("contactNumber", filters.contactNumber.trim());
+        if (filters?.vehicleNumber?.trim()) params.set("vehicleNumber", filters.vehicleNumber.trim());
+        if (filters?.serviceDate?.trim()) params.set("serviceDate", filters.serviceDate.trim());
+        if (filters?.advisor?.trim()) params.set("advisor", filters.advisor.trim());
+        if (filters?.pickupDrop?.trim()) params.set("pickupDrop", filters.pickupDrop.trim());
+        if (filters?.concerns?.trim()) params.set("concerns", filters.concerns.trim());
+        if (filters?.type) params.set("type", filters.type);
         if (filters?.status) params.set("status", filters.status);
+        if (filters?.whatsappSent) params.set("whatsappSent", filters.whatsappSent);
+        if (filters?.customerWhatsappSent) params.set("customerWhatsappSent", filters.customerWhatsappSent);
+        if (filters?.reviewRating?.trim()) params.set("reviewRating", filters.reviewRating.trim());
 
         const res = await fetch(`/api/feedback/list?${params.toString()}`, {
           cache: "no-store",
@@ -95,18 +158,36 @@ export default function FeedbacksPage() {
   }, [fetchItems]);
 
   function handleSearch() {
-    fetchItems({
-      name: nameFilter,
-      advisor: advisorFilter,
-      status: statusFilter,
-    });
+    fetchItems(getCurrentFilters());
   }
 
   function handleClearFilters() {
     setNameFilter("");
+    setContactFilter("");
+    setVehicleFilter("");
+    setServiceDateFilter("");
     setAdvisorFilter("");
+    setPickupDropFilter("");
+    setConcernsFilter("");
+    setTypeFilter("");
     setStatusFilter("");
-    fetchItems({ name: "", advisor: "", status: "" });
+    setGroupWaFilter("");
+    setCustomerWaFilter("");
+    setReviewRatingFilter("");
+    fetchItems({
+      name: "",
+      contactNumber: "",
+      vehicleNumber: "",
+      serviceDate: "",
+      advisor: "",
+      pickupDrop: "",
+      concerns: "",
+      type: "",
+      status: "",
+      whatsappSent: "",
+      customerWhatsappSent: "",
+      reviewRating: "",
+    });
   }
 
   async function handleRetry(feedbackId: string) {
@@ -126,9 +207,7 @@ export default function FeedbacksPage() {
         });
       }
       await fetchItems({
-        name: nameFilter,
-        advisor: advisorFilter,
-        status: statusFilter,
+        ...getCurrentFilters(),
       });
     } catch {
       setMessage({ type: "error", text: "Retry failed due to a network error." });
@@ -192,9 +271,7 @@ export default function FeedbacksPage() {
             type="button"
             onClick={() =>
               fetchItems({
-                name: nameFilter,
-                advisor: advisorFilter,
-                status: statusFilter,
+                ...getCurrentFilters(),
               })
             }
             disabled={loading}
@@ -210,11 +287,29 @@ export default function FeedbacksPage() {
 
           {/* Filters */}
           <section className="rounded-2xl border-2 border-black bg-white p-5 shadow-sm">
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <input
                 value={nameFilter}
                 onChange={(e) => setNameFilter(e.target.value)}
                 placeholder="Search by customer name"
+                className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              />
+              <input
+                value={contactFilter}
+                onChange={(e) => setContactFilter(e.target.value)}
+                placeholder="Contact number"
+                className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              />
+              <input
+                value={vehicleFilter}
+                onChange={(e) => setVehicleFilter(e.target.value)}
+                placeholder="Vehicle number"
+                className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              />
+              <input
+                value={serviceDateFilter}
+                onChange={(e) => setServiceDateFilter(e.target.value)}
+                placeholder="Service date"
                 className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
               />
               <input
@@ -223,6 +318,32 @@ export default function FeedbacksPage() {
                 placeholder="Search by service advisor"
                 className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
               />
+              <input
+                value={pickupDropFilter}
+                onChange={(e) => setPickupDropFilter(e.target.value)}
+                placeholder="Pickup / drop"
+                className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              />
+              <input
+                value={concernsFilter}
+                onChange={(e) => setConcernsFilter(e.target.value)}
+                placeholder="Concerns"
+                className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              />
+              <select
+                value={typeFilter}
+                onChange={(e) =>
+                  setTypeFilter(e.target.value as FeedbackType | "")
+                }
+                className="rounded-lg border-2 border-black bg-white px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              >
+                <option value="">All types</option>
+                {FEEDBACK_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
               <select
                 value={statusFilter}
                 onChange={(e) =>
@@ -237,6 +358,35 @@ export default function FeedbacksPage() {
                   </option>
                 ))}
               </select>
+              <select
+                value={groupWaFilter}
+                onChange={(e) =>
+                  setGroupWaFilter(e.target.value as "" | "true" | "false")
+                }
+                className="rounded-lg border-2 border-black bg-white px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              >
+                <option value="">All group WA</option>
+                <option value="true">Sent</option>
+                <option value="false">Pending</option>
+              </select>
+              <select
+                value={customerWaFilter}
+                onChange={(e) =>
+                  setCustomerWaFilter(e.target.value as "" | "true" | "false")
+                }
+                className="rounded-lg border-2 border-black bg-white px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              >
+                <option value="">All customer WA</option>
+                <option value="true">Sent</option>
+                <option value="false">Not sent</option>
+              </select>
+              <input
+                value={reviewRatingFilter}
+                onChange={(e) => setReviewRatingFilter(e.target.value.replace(/[^1-5]/g, ""))}
+                placeholder="Review rating (1-5)"
+                maxLength={1}
+                className="rounded-lg border-2 border-black px-3 py-2 text-sm text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+              />
             </div>
             <div className="mt-3 flex flex-wrap gap-3">
               <button
@@ -253,6 +403,17 @@ export default function FeedbacksPage() {
               >
                 Clear filters
               </button>
+              <a
+                href={`/api/feedback/list?${(() => {
+                  const params = buildFilterParams();
+                  params.set("format", "xlsx");
+                  params.set("limit", "1000");
+                  return params.toString();
+                })()}`}
+                className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white"
+              >
+                Download Excel
+              </a>
             </div>
           </section>
 

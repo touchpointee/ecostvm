@@ -629,20 +629,22 @@ export async function updateMemberSoldStatus(id: string, sold: boolean): Promise
 }
 
 export async function getNextMembershipNumber(): Promise<string> {
-  const collection = await membersCollection();
-  const members = await collection.find({}, { projection: { membershipNumber: 1 } }).toArray();
-  
+  const db = await getDb();
+  const [members, pending] = await Promise.all([
+    db.collection("logins").find({}, { projection: { membershipNumber: 1 } }).toArray(),
+    db.collection("pending_registrations").find({}, { projection: { membershipNumber: 1 } }).toArray(),
+  ]);
+
   let max = 0;
-  for (const m of members) {
-    const memNo = m.membershipNumber;
-    if (memNo) {
-      // Use Number() to handle decimals like "123.0" correctly
-      const num = Math.floor(Number(String(memNo)));
-      if (!isNaN(num) && num > max) {
-        max = num;
-      }
+  for (const record of [...members, ...pending]) {
+    const raw = (record as { membershipNumber?: unknown }).membershipNumber;
+    const normalized = normalizeMembershipNumber(raw);
+    if (!normalized) continue;
+    const num = Number(normalized);
+    if (Number.isFinite(num) && num > max) {
+      max = num;
     }
   }
-  
-  return String(max + 1);
+
+  return String(Math.floor(max) + 1);
 }

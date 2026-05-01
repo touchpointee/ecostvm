@@ -37,13 +37,13 @@ export default function AdminLayout({
 
   const nav = [
     { href: "/admin", label: "Dashboard" },
-    { href: "/admin/whatsapp", label: "WhatsApp Config" },
     { href: "/admin/feedbacks", label: "Feedbacks" },
     { href: "/admin/registrations", label: "Registrations", badge: pendingCount },
     { href: "/admin/logins", label: "Members" },
     { href: "/admin/logins/search", label: "Search" },
     { href: "/admin/birthdays", label: "Birthdays" },
     { href: "/admin/settings", label: "Settings" },
+    { href: "/admin/whatsapp", label: "WhatsApp Config" },
   ];
 
   const externalLinks = [
