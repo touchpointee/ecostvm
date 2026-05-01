@@ -189,7 +189,8 @@ export async function GET(request: NextRequest) {
       );
 
       const stamp = new Date().toISOString().slice(0, 10);
-      return new NextResponse(workbook, {
+      const binary = new Uint8Array(workbook);
+      return new NextResponse(binary, {
         status: 200,
         headers: {
           "Content-Type":
