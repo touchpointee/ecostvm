@@ -176,6 +176,9 @@ export default function MemberSearchPage() {
   const [loading, setLoading] = useState(true);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [editingMember, setEditingMember] = useState<MemberFormState | null>(null);
+  const [cardMember, setCardMember] = useState<Member | null>(null);
+  const [cardMsg, setCardMsg] = useState<string | null>(null);
+  const [sendingCard, setSendingCard] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
@@ -256,6 +259,47 @@ export default function MemberSearchPage() {
       setTotal((t) => t - 1);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Delete failed");
+    }
+  };
+
+  const openCardPreview = (memberSpec: Member) => {
+    setCardMember(memberSpec);
+    setCardMsg(null);
+  };
+
+  const handleDownloadCard = async () => {
+    if (!cardMember) return;
+    try {
+      setCardMsg(null);
+      const res = await fetch(`/api/logins/${cardMember.id}/membership-card`);
+      if (!res.ok) throw new Error((await res.json()).error || "Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `membership-card-${cardMember.membershipNumber || cardMember.name || "member"}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setCardMsg(err instanceof Error ? err.message : "Download failed");
+    }
+  };
+
+  const handleSendCard = async () => {
+    if (!cardMember) return;
+    setSendingCard(true);
+    setCardMsg(null);
+    try {
+      const res = await fetch(`/api/logins/${cardMember.id}/membership-card`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Send failed");
+      setCardMsg(`Card sent to ${cardMember.contactNumber}.`);
+    } catch (err) {
+      setCardMsg(err instanceof Error ? err.message : "Send failed");
+    } finally {
+      setSendingCard(false);
     }
   };
 
@@ -444,6 +488,11 @@ export default function MemberSearchPage() {
                             <div className="flex justify-end gap-1.5">
                               <button
                                 type="button"
+                                onClick={(e) => { e.stopPropagation(); openCardPreview(m); }}
+                                className="rounded-md border-2 border-yellow-500 bg-yellow-400 px-2 py-1 text-[11px] font-medium text-black hover:bg-yellow-300"
+                              >Card</button>
+                              <button
+                                type="button"
                                 onClick={(e) => { e.stopPropagation(); setEditingMember({
                                   id: m.id, name: m.name, membershipNumber: m.membershipNumber,
                                   contactNumber: m.contactNumber, model: m.model,
@@ -497,6 +546,67 @@ export default function MemberSearchPage() {
           )}
         </div>
       </div>
+
+      {/* Membership Card Modal */}
+      {cardMember && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setCardMember(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="membership-card-title"
+        >
+          <div
+            className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl border-2 border-black bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-4 py-4 sm:px-6">
+              <div>
+                <h2 id="membership-card-title" className="text-lg font-semibold text-black">Membership card</h2>
+                <p className="text-sm text-black/70">
+                  {cardMember.name || "Member"} #{cardMember.membershipNumber || "-"}
+                </p>
+              </div>
+              <button type="button" onClick={() => setCardMember(null)} className="rounded-lg p-2 text-black hover:bg-black hover:text-white" aria-label="Close">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4 p-4 sm:p-6">
+              <div className="overflow-hidden rounded-lg border-2 border-black bg-black">
+                <img
+                  src={`/api/logins/${cardMember.id}/membership-card?preview=${cardMember.updatedAt ?? cardMember.id}`}
+                  alt={`Membership card for ${cardMember.name || "member"}`}
+                  className="h-auto w-full"
+                />
+              </div>
+              {cardMsg && (
+                <p className={`rounded-lg border-2 border-black p-3 text-sm ${cardMsg.startsWith("Card sent") ? "bg-yellow-100 text-black" : "bg-black text-white"}`}>
+                  {cardMsg}
+                </p>
+              )}
+              <div className="flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleDownloadCard}
+                  className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-medium text-black hover:bg-black hover:text-white"
+                >
+                  Download
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendCard}
+                  disabled={sendingCard}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-70"
+                >
+                  {sendingCard ? "Sending..." : "Send to WhatsApp"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editingMember && (

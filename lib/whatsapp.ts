@@ -398,6 +398,37 @@ export async function sendDirectMessageWithRetry(
 // Accepts a local file path or an https:// URL as imagePath.
 // A random 8–18 s delay is applied before every send to stay under
 // WhatsApp's spam-detection thresholds on virtual numbers.
+export async function sendDirectImageWithRetry(
+  phone: string,
+  image: Buffer,
+  _filename: string,
+  caption?: string
+): Promise<string | undefined> {
+  const jid = phoneToJid(phone);
+  const safeCaption = caption?.trim() ?? "";
+
+  const doSend = async (sock: WASocket) =>
+    sock.sendMessage(jid, { image, caption: safeCaption });
+
+  try {
+    const msg = await doSend(await getSocketWhenReady());
+    return msg?.key?.id ?? undefined;
+  } catch (e) {
+    if (isConnectionError(e)) {
+      console.warn(
+        "[whatsapp] direct image send failed (connection error), retrying once:",
+        e
+      );
+      clearSocketIfClosed();
+      await connect();
+      const msg = await doSend(await getSocketWhenReady());
+      return msg?.key?.id ?? undefined;
+    } else {
+      throw e;
+    }
+  }
+}
+
 export async function sendEcoSportUpdate(
   groupId: string,
   imagePath: string,
