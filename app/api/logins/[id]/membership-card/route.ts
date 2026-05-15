@@ -18,7 +18,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Member not found." }, { status: 404 });
   }
 
-  const image = await renderMembershipCard(member.name, member.membershipNumber);
+  const image = await renderMembershipCard(member.name, member.membershipNumber, member.vehicleNumber);
 
   return new NextResponse(new Uint8Array(image), {
     headers: {
@@ -41,7 +41,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Member WhatsApp number is missing or invalid." }, { status: 400 });
     }
 
-    const image = await renderMembershipCard(member.name, member.membershipNumber);
+    const image = await renderMembershipCard(member.name, member.membershipNumber, member.vehicleNumber);
     const messageId = await sendDirectImageWithRetry(
       phone,
       image,
