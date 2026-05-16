@@ -90,7 +90,7 @@ export default function RegisterPage() {
   useEffect(() => {
     async function fetchNextMembership() {
       try {
-        const res = await fetch("/api/next-membership");
+        const res = await fetch("/api/next-membership", { cache: "no-store" });
         const data = await res.json();
         if (data.next) {
           setForm((prev) => ({ ...prev, membershipNumber: String(data.next) }));
@@ -184,7 +184,7 @@ export default function RegisterPage() {
               setSubmitted(false);
               setLoadingMembership(true);
               try {
-                const res = await fetch("/api/next-membership");
+                const res = await fetch("/api/next-membership", { cache: "no-store" });
                 const data = await res.json();
                 if (data.next) setForm((prev) => ({ ...prev, membershipNumber: String(data.next) }));
               } finally {
@@ -496,7 +496,18 @@ export default function RegisterPage() {
               </button>
               <button
                 type="button"
-                onClick={() => { setForm(emptyForm); setError(null); }}
+                onClick={async () => {
+                setForm(emptyForm);
+                setError(null);
+                setLoadingMembership(true);
+                try {
+                  const res = await fetch("/api/next-membership", { cache: "no-store" });
+                  const data = await res.json();
+                  if (data.next) setForm((prev) => ({ ...prev, membershipNumber: String(data.next) }));
+                } finally {
+                  setLoadingMembership(false);
+                }
+              }}
                 className="rounded-xl border-2 border-black bg-white px-6 py-3 text-sm font-semibold text-black hover:bg-black hover:text-white transition"
               >
                 Clear form

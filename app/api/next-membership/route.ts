@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getNextMembershipNumber } from "@/lib/members";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const next = await getNextMembershipNumber();
