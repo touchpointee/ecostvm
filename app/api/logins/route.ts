@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       dateOfBirth: searchParams.get("dateOfBirth") ?? "",
       emergencyContact: searchParams.get("emergencyContact") ?? "",
       suggestions: searchParams.get("suggestions") ?? "",
+      membershipCardStatus: (searchParams.get("membershipCardStatus") ?? "") as "sent" | "not_sent" | "",
       page,
       limit,
     });

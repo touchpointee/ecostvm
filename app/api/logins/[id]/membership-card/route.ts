@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getMemberById } from "@/lib/members";
+import { getMemberById, markMembershipCardSent } from "@/lib/members";
 import { renderMembershipCard } from "@/lib/membershipCard";
 import { sendDirectImageWithRetry } from "@/lib/whatsapp";
 
@@ -48,8 +48,15 @@ export async function POST(_request: Request, { params }: RouteContext) {
       cardFilename(member),
       `Membership card for ${member.name || "Member"}`
     );
+    const statusUpdate = await markMembershipCardSent(params.id, messageId ?? "");
+    if (!statusUpdate.ok) {
+      return NextResponse.json(
+        { error: statusUpdate.error || "Card sent, but failed to update membership card status." },
+        { status: 500 }
+      );
+    }
 
-    return NextResponse.json({ ok: true, messageId });
+    return NextResponse.json({ ok: true, messageId, member: statusUpdate.member });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to send membership card." },

@@ -57,10 +57,12 @@ type Member = {
   suggestions: string;
   isBlocked: boolean;
   isSold: boolean;
+  membershipCardSentAt: string | null;
+  membershipCardMessageId: string;
   updatedAt: string | null;
 };
 
-type MemberFormState = Omit<Member, "updatedAt">;
+type MemberFormState = Omit<Member, "updatedAt" | "membershipCardSentAt" | "membershipCardMessageId">;
 
 type Filters = {
   q: string;
@@ -81,6 +83,7 @@ type Filters = {
   dateOfBirth: string;
   emergencyContact: string;
   suggestions: string;
+  membershipCardStatus: string;
 };
 
 const emptyFilters: Filters = {
@@ -102,6 +105,7 @@ const emptyFilters: Filters = {
   dateOfBirth: "",
   emergencyContact: "",
   suggestions: "",
+  membershipCardStatus: "",
 };
 
 function Pagination({
@@ -295,6 +299,20 @@ export default function MemberSearchPage() {
       const res = await fetch(`/api/logins/${cardMember.id}/membership-card`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Send failed");
+      const sentAt = data.member?.membershipCardSentAt ?? new Date().toISOString();
+      const messageId = data.messageId ?? "";
+      setResults((prev) => prev.map((m) => m.id === cardMember.id ? {
+        ...m,
+        membershipCardSentAt: sentAt,
+        membershipCardMessageId: messageId,
+        updatedAt: data.member?.updatedAt ?? m.updatedAt,
+      } : m));
+      setCardMember((current) => current && current.id === cardMember.id ? {
+        ...current,
+        membershipCardSentAt: sentAt,
+        membershipCardMessageId: messageId,
+        updatedAt: data.member?.updatedAt ?? current.updatedAt,
+      } : current);
       setCardMsg(`Card sent to ${cardMember.contactNumber}.`);
     } catch (err) {
       setCardMsg(err instanceof Error ? err.message : "Send failed");
@@ -390,6 +408,11 @@ export default function MemberSearchPage() {
 
               {/* Suggestions */}
               <input value={filters.suggestions} onChange={(e) => updateFilter("suggestions", e.target.value)} placeholder="Suggestions (keyword)" className={inputCls} />
+              <select value={filters.membershipCardStatus} onChange={(e) => updateFilter("membershipCardStatus", e.target.value)} className={`${inputCls} bg-white`}>
+                <option value="">Card Status (All)</option>
+                <option value="not_sent">Card Not Sent</option>
+                <option value="sent">Card Sent</option>
+              </select>
 
             </div>
 
@@ -446,6 +469,7 @@ export default function MemberSearchPage() {
                         <th className="whitespace-nowrap px-3 py-2">Date of Birth</th>
                         <th className="whitespace-nowrap px-3 py-2">Emergency Contact</th>
                         <th className="whitespace-nowrap px-3 py-2">Suggestions</th>
+                        <th className="whitespace-nowrap px-3 py-2">Card Status</th>
                         <th className="whitespace-nowrap px-3 py-2">Status</th>
                         <th className="whitespace-nowrap px-3 py-2 text-right">Actions</th>
                       </tr>
@@ -475,6 +499,17 @@ export default function MemberSearchPage() {
                           <td className="whitespace-nowrap px-3 py-2 text-black">{m.dateOfBirth || "—"}</td>
                           <td className="whitespace-nowrap px-3 py-2 font-mono text-black">{m.emergencyContact || "—"}</td>
                           <td className="max-w-[160px] truncate px-3 py-2 text-black/60" title={m.suggestions}>{m.suggestions || "—"}</td>
+                          <td className="whitespace-nowrap px-3 py-2">
+                            {m.membershipCardSentAt ? (
+                              <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-700" title={`Sent ${new Date(m.membershipCardSentAt).toLocaleString()}`}>
+                                SENT
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-[10px] font-bold text-yellow-700">
+                                NOT SENT
+                              </span>
+                            )}
+                          </td>
                           <td className="whitespace-nowrap px-3 py-2">
                             {m.isBlocked ? (
                               <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600 border border-red-200">BLOCKED</span>
@@ -526,7 +561,7 @@ export default function MemberSearchPage() {
                       ))}
                       {!loading && results.length === 0 && (
                         <tr>
-                          <td colSpan={19} className="px-3 py-8 text-center text-sm text-black/60">
+                          <td colSpan={20} className="px-3 py-8 text-center text-sm text-black/60">
                             {statusMsg ?? "No records found."}
                           </td>
                         </tr>
@@ -574,6 +609,18 @@ export default function MemberSearchPage() {
               </button>
             </div>
             <div className="space-y-4 p-4 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border-2 border-black bg-yellow-50 px-3 py-2 text-sm text-black">
+                <span className="font-semibold">Membership card status</span>
+                {cardMember.membershipCardSentAt ? (
+                  <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+                    SENT {new Date(cardMember.membershipCardSentAt).toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-yellow-300 bg-white px-3 py-1 text-xs font-bold text-yellow-700">
+                    NOT SENT
+                  </span>
+                )}
+              </div>
               <div className="overflow-hidden rounded-lg border-2 border-black bg-black">
                 <img
                   src={`/api/logins/${cardMember.id}/membership-card?preview=${cardMember.updatedAt ?? cardMember.id}`}

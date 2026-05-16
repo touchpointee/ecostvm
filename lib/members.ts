@@ -47,6 +47,8 @@ export type MemberRecord = {
   suggestions: string;
   isBlocked: boolean;
   isSold: boolean;
+  membershipCardSentAt: string | null;
+  membershipCardMessageId: string;
   createdAt: string | null;
   updatedAt: string | null;
   source: string;
@@ -74,6 +76,8 @@ type MemberDoc = {
   suggestions?: string;
   isBlocked?: boolean;
   isSold?: boolean;
+  membershipCardSentAt?: Date;
+  membershipCardMessageId?: string;
   source?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -98,6 +102,7 @@ export type MemberFilters = {
   dateOfBirth?: string;
   emergencyContact?: string;
   suggestions?: string;
+  membershipCardStatus?: "sent" | "not_sent" | "";
   page?: number;
   limit?: number;
 };
@@ -210,6 +215,8 @@ function mapMemberDoc(doc: MemberDoc): MemberRecord {
     suggestions: doc.suggestions ?? "",
     isBlocked: !!doc.isBlocked,
     isSold: !!doc.isSold,
+    membershipCardSentAt: doc.membershipCardSentAt?.toISOString() ?? null,
+    membershipCardMessageId: doc.membershipCardMessageId ?? "",
     createdAt: doc.createdAt?.toISOString() ?? null,
     updatedAt: doc.updatedAt?.toISOString() ?? null,
     source: doc.source ?? "manual",
@@ -249,6 +256,7 @@ export async function ensureMemberIndexes() {
     collection.createIndex({ membershipNumber: 1 }),
     collection.createIndex({ name: 1 }),
     collection.createIndex({ vehicleNumber: 1 }),
+    collection.createIndex({ membershipCardSentAt: 1 }),
     collection.createIndex({ place: 1 }),
     collection.createIndex({ bloodGroup: 1 }),
   ]);
@@ -521,6 +529,17 @@ export async function listMembers(filters: MemberFilters = {}): Promise<{ items:
     andFilters.push({ membershipNumber: normalizeLooseText(exactMembershipNumber) });
   }
 
+  if (filters.membershipCardStatus === "sent") {
+    andFilters.push({ membershipCardSentAt: { $type: "date" } });
+  } else if (filters.membershipCardStatus === "not_sent") {
+    andFilters.push({
+      $or: [
+        { membershipCardSentAt: { $exists: false } },
+        { membershipCardSentAt: null },
+      ],
+    } as Filter<MemberDoc>);
+  }
+
   if (andFilters.length === 1) {
     Object.assign(query, andFilters[0]);
   } else if (andFilters.length > 1) {
@@ -625,6 +644,35 @@ export async function updateMemberSoldStatus(id: string, sold: boolean): Promise
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Update failed" };
+  }
+}
+
+export async function markMembershipCardSent(id: string, messageId: string): Promise<{ ok: boolean; error?: string; member?: MemberRecord }> {
+  let objId;
+  try {
+    objId = new ObjectId(id);
+  } catch {
+    return { ok: false, error: "Invalid ID" };
+  }
+
+  const collection = await membersCollection();
+  try {
+    const result = await collection.findOneAndUpdate(
+      { _id: objId },
+      {
+        $set: {
+          membershipCardSentAt: new Date(),
+          membershipCardMessageId: messageId,
+          updatedAt: new Date(),
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!result) return { ok: false, error: "Member not found" };
+    return { ok: true, member: mapMemberDoc(result) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to update membership card status" };
   }
 }
 
