@@ -557,7 +557,7 @@ export default function MemberSearchPage() {
           aria-labelledby="membership-card-title"
         >
           <div
-            className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-2xl border-2 border-black bg-white shadow-xl"
+            className="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-2xl border-2 border-black bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b-2 border-black bg-yellow-100 px-4 py-4 sm:px-6">

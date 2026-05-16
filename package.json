@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@fontsource/poppins": "^5.2.7",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "adm-zip": "^0.5.16",
     "mongodb": "^7.1.0",
