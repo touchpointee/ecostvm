@@ -170,8 +170,8 @@ export default function RegisterPage() {
   // Developer mode screen — WhatsApp not connected
   if (devMode) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#eff3fb] px-4">
-        <div className="w-full max-w-md rounded-3xl border-2 border-black bg-white p-8 text-center shadow-xl">
+      <div className="flex min-h-screen items-center justify-center bg-[#eff3fb] px-4 py-16 sm:py-24">
+        <div className="w-full max-w-md rounded-3xl border-2 border-black bg-white p-8 text-center shadow-2xl my-8">
           <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-yellow-400 shadow-lg">
             <svg className="h-10 w-10 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -179,11 +179,11 @@ export default function RegisterPage() {
           </div>
           <h2 className="text-2xl font-extrabold text-black">Developer Mode</h2>
           <p className="mt-3 text-sm font-medium text-black/70 leading-relaxed">
-            Registration is currently unavailable because WhatsApp is not connected.
+            Registration is currently unavailable.
           </p>
           <div className="mt-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 px-5 py-4">
             <p className="text-sm text-black/60 leading-relaxed">
-              Please ask the administrator to connect WhatsApp from the admin dashboard before submitting a registration.
+              Please connect with the administrator to enable this feature.
             </p>
           </div>
           <p className="mt-4 text-xs text-black/30">[ Developer Mode Active ]</p>
