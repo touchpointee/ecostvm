@@ -329,7 +329,6 @@ export default function MemberSearchPage() {
     try {
       if (!/^[a-zA-Z ]+$/.test(editingMember.name)) { setSaveMsg("Name should only contain letters and spaces."); setSaving(false); return; }
       if (!/^\d{10}$/.test(editingMember.contactNumber.replace(/\D/g, ""))) { setSaveMsg("Contact number must be exactly 10 digits."); setSaving(false); return; }
-      if (!/^([A-Za-z]{2}[ -]?[0-9]{1,2}[ -]?[A-Za-z]{0,2}[ -]?[0-9]{4}|[0-9]{2}[ -]?[Bb][Hh][ -]?[0-9]{4}[ -]?[A-Za-z]{1,2})$/.test(editingMember.vehicleNumber)) { setSaveMsg("Invalid vehicle number format."); setSaving(false); return; }
 
       const res = await fetch("/api/logins", {
         method: "POST",
@@ -774,8 +773,8 @@ export default function MemberSearchPage() {
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="e-vehicleNumber" className={labelCls}>Vehicle No *</label>
-                      <input id="e-vehicleNumber" value={editingMember.vehicleNumber} onChange={(e) => updateEditingField("vehicleNumber", e.target.value.toUpperCase())} required className={`${editInputCls} uppercase`} />
+                      <label htmlFor="e-vehicleNumber" className={labelCls}>Vehicle No</label>
+                      <input id="e-vehicleNumber" value={editingMember.vehicleNumber} onChange={(e) => updateEditingField("vehicleNumber", e.target.value.toUpperCase())} className={`${editInputCls} uppercase`} />
                     </div>
                   </div>
                 </div>

@@ -151,14 +151,6 @@ export default function MemberDetailPage() {
       setMessage({ type: "error", text: "Contact number must be exactly 10 digits." });
       return;
     }
-    if (
-      !/^([A-Za-z]{2}[ -]?[0-9]{1,2}[ -]?[A-Za-z]{0,2}[ -]?[0-9]{4}|[0-9]{2}[ -]?[Bb][Hh][ -]?[0-9]{4}[ -]?[A-Za-z]{1,2})$/.test(
-        form.vehicleNumber
-      )
-    ) {
-      setMessage({ type: "error", text: "Invalid vehicle number format (e.g., KL01AB1234 or 21BH1234AA)." });
-      return;
-    }
     setSaving(true);
     setMessage(null);
     try {
@@ -546,11 +538,10 @@ export default function MemberDetailPage() {
                     </select>
                   </div>
                   <div>
-                    <label className={labelCls}>Vehicle No *</label>
+                    <label className={labelCls}>Vehicle No</label>
                     <input
                       value={form.vehicleNumber}
                       onChange={(e) => updateField("vehicleNumber", e.target.value.toUpperCase())}
-                      required
                       className={`${inputCls} uppercase`}
                     />
                   </div>
