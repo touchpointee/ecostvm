@@ -11,7 +11,6 @@ export async function POST(request: NextRequest) {
     const requiredFields: Array<[string, string]> = [
       ["name", "Name"],
       ["contactNumber", "Contact No"],
-      ["vehicleNumber", "Vehicle No"],
       ["place", "Place"],
       ["address", "Address"],
       ["dateOfBirth", "Date of Birth"],
@@ -49,9 +48,6 @@ export async function POST(request: NextRequest) {
         { error: "A registration with this contact number is already pending admin approval." },
         { status: 409 }
       );
-    }
-    if (!/^([A-Za-z]{2}[ -]?[0-9]{1,2}[ -]?[A-Za-z]{0,2}[ -]?[0-9]{4}|[0-9]{2}[ -]?[Bb][Hh][ -]?[0-9]{4}[ -]?[A-Za-z]{1,2})$/.test(String(body.vehicleNumber ?? ""))) {
-      return NextResponse.json({ error: "Invalid vehicle number format (e.g., KL01AB1234 or 21BH1234AA)." }, { status: 400 });
     }
 
     const result = await createPendingRegistration({

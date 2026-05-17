@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     await ensureMemberIndexes();
     const body = await request.json();
 
-    const requiredFields = ["name", "contactNumber", "vehicleNumber", "place", "address", "dateOfBirth"];
+    const requiredFields = ["name", "contactNumber", "place", "address", "dateOfBirth"];
     for (const field of requiredFields) {
         if (!body[field] || String(body[field]).trim() === "") {
             return NextResponse.json({ error: `Please fill in all fields (missing ${field}).` }, { status: 400 });
@@ -99,9 +99,6 @@ export async function POST(request: NextRequest) {
     const rawContact = String(body?.contactNumber ?? body?.number ?? body?.phoneNumber ?? "");
     if (!/^\d{10}$/.test(rawContact.replace(/\D/g, ''))) {
       return NextResponse.json({ error: "Contact number must contain exactly 10 digits." }, { status: 400 });
-    }
-    if (!/^([A-Za-z]{2}[ -]?[0-9]{1,2}[ -]?[A-Za-z]{0,2}[ -]?[0-9]{4}|[0-9]{2}[ -]?[Bb][Hh][ -]?[0-9]{4}[ -]?[A-Za-z]{1,2})$/.test(String(body?.vehicleNumber ?? ""))) {
-      return NextResponse.json({ error: "Invalid vehicle number format (e.g., KL01AB1234 or 21BH1234AA)." }, { status: 400 });
     }
 
     const result = await upsertMember({

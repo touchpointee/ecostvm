@@ -279,15 +279,9 @@ export async function upsertMember(input: MemberInput, allowUpdate: boolean = tr
   if (!phoneNumber || phoneNumber.length < 10) {
     return { ok: false, error: "Enter a valid contact number with at least 10 digits." };
   }
-  if (!vehicleNumberInput) return { ok: false, error: "Vehicle number is required." };
   if (!dateOfBirth) return { ok: false, error: "Date of birth is required." };
   if (!place) return { ok: false, error: "Place is required." };
   if (!address) return { ok: false, error: "Address is required." };
-
-  // Validate vehicle number format
-  if (!validateVehicleNumber(vehicleNumberInput)) {
-    return { ok: false, error: "Invalid vehicle number format (e.g., KL01AB1234 or 21BH1234AA)." };
-  }
 
   // If ID is provided, it's a direct update
   if (input.id) {

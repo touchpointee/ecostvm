@@ -79,6 +79,15 @@ export default function RegisterPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMembership, setLoadingMembership] = useState(true);
+  const [devMode, setDevMode] = useState<boolean | null>(null);
+
+  // Check WhatsApp / dev mode
+  useEffect(() => {
+    fetch("/api/mode", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setDevMode(!!d.devMode))
+      .catch(() => setDevMode(false));
+  }, []);
 
   // Auto-dismiss error popup after 5 seconds
   useEffect(() => {
@@ -120,10 +129,6 @@ export default function RegisterPage() {
       setError("Contact number must be exactly 10 digits.");
       return;
     }
-    if (!/^([A-Za-z]{2}[ -]?[0-9]{1,2}[ -]?[A-Za-z]{0,2}[ -]?[0-9]{4}|[0-9]{2}[ -]?[Bb][Hh][ -]?[0-9]{4}[ -]?[A-Za-z]{1,2})$/.test(form.vehicleNumber)) {
-      setError("Invalid vehicle number format (e.g., KL01AB1234 or 21BH1234AA).");
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -149,6 +154,43 @@ export default function RegisterPage() {
     "mt-1 block w-full rounded-xl border-2 border-black bg-white px-4 py-3 text-black placeholder-black/40 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 transition";
   const selectCls = `${inputCls}`;
   const labelCls = "block text-sm font-semibold text-black";
+
+  // Loading state while mode is being fetched
+  if (devMode === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#eff3fb]">
+        <svg className="h-8 w-8 animate-spin text-black/30" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+        </svg>
+      </div>
+    );
+  }
+
+  // Developer mode screen — WhatsApp not connected
+  if (devMode) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#eff3fb] px-4">
+        <div className="w-full max-w-md rounded-3xl border-2 border-black bg-white p-8 text-center shadow-xl">
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-yellow-400 shadow-lg">
+            <svg className="h-10 w-10 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-extrabold text-black">Developer Mode</h2>
+          <p className="mt-3 text-sm font-medium text-black/70 leading-relaxed">
+            Registration is currently unavailable because WhatsApp is not connected.
+          </p>
+          <div className="mt-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 px-5 py-4">
+            <p className="text-sm text-black/60 leading-relaxed">
+              Please ask the administrator to connect WhatsApp from the admin dashboard before submitting a registration.
+            </p>
+          </div>
+          <p className="mt-4 text-xs text-black/30">[ Developer Mode Active ]</p>
+        </div>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
