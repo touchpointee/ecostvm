@@ -251,7 +251,7 @@ export default function RegisterPage() {
           <div className="relative w-full" style={{ aspectRatio: "16/7" }}>
             <Image
               src="/club-banner.jpg"
-              alt="EcoSport TVM Club"
+              alt="ECOSTVM"
               fill
               className="object-cover object-top"
               priority
@@ -260,10 +260,10 @@ export default function RegisterPage() {
           </div>
           <div className="border-t-4 border-[#4A5FA5] px-6 py-5">
             <h1 className="text-xl font-bold text-black sm:text-2xl">
-              Welcome to Ecosport owner&apos;s club Trivandrum
+              Welcome to ECOSTVM
             </h1>
             <p className="mt-0.5 text-sm text-black/50 italic">(TVM/TC/34/2020)</p>
-            <p className="mt-3 text-sm font-semibold text-black">Ecostvm member&apos;s joining Form</p>
+            <p className="mt-3 text-sm font-semibold text-black">ECOSTVM member&apos;s joining Form</p>
           </div>
         </div>
 

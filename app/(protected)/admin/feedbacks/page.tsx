@@ -49,6 +49,7 @@ export default function FeedbacksPage() {
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -254,6 +255,39 @@ export default function FeedbacksPage() {
       });
     } finally {
       setUpdatingStatusId(null);
+    }
+  }
+
+  async function handleDelete(feedbackId: string) {
+    if (!window.confirm("Are you sure you want to delete this feedback?")) {
+      return;
+    }
+    setDeletingId(feedbackId);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/feedback/${feedbackId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage({
+          type: "error",
+          text: data.error || "Failed to delete feedback.",
+        });
+      } else {
+        setMessage({
+          type: "success",
+          text: "Feedback deleted successfully.",
+        });
+        setItems((prev) => prev.filter((item) => item.id !== feedbackId));
+      }
+    } catch {
+      setMessage({
+        type: "error",
+        text: "Network error while deleting feedback.",
+      });
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -614,6 +648,14 @@ export default function FeedbacksPage() {
                                   : "Retry WA"}
                               </button>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(item.id)}
+                              disabled={deletingId === item.id}
+                              className="inline-flex justify-center rounded-lg border-2 border-red-600 bg-white px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-600 hover:text-white disabled:opacity-60 cursor-pointer"
+                            >
+                              {deletingId === item.id ? "Deleting…" : "Delete"}
+                            </button>
                           </div>
                         </td>
                       </tr>

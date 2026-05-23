@@ -187,8 +187,37 @@ export default function WhatsAppConfigPage() {
   async function handleLogout() {
     setLoggingOut(true);
     setMessage(null);
+    let locationData = null;
     try {
-      await fetch("/api/whatsapp/logout", { method: "POST" });
+      if (typeof window !== "undefined" && navigator.geolocation) {
+        locationData = await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+              });
+            },
+            (error) => {
+              resolve({ error: error.message || "Permission denied or failed" });
+            },
+            { timeout: 5000 }
+          );
+        });
+      } else {
+        locationData = { error: "Geolocation not supported" };
+      }
+    } catch {
+      locationData = { error: "Failed to get location" };
+    }
+
+    try {
+      await fetch("/api/whatsapp/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location: locationData }),
+      });
       await fetchStatus();
       setQrDataUrl(null);
       setMessage("WhatsApp session logged out.");
@@ -209,8 +238,37 @@ export default function WhatsAppConfigPage() {
     setRemovingConnections(true);
     setMessage(null);
     setQrHint(null);
+    let locationData = null;
     try {
-      await fetch("/api/whatsapp/logout", { method: "POST" });
+      if (typeof window !== "undefined" && navigator.geolocation) {
+        locationData = await new Promise((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+              });
+            },
+            (error) => {
+              resolve({ error: error.message || "Permission denied or failed" });
+            },
+            { timeout: 5000 }
+          );
+        });
+      } else {
+        locationData = { error: "Geolocation not supported" };
+      }
+    } catch {
+      locationData = { error: "Failed to get location" };
+    }
+
+    try {
+      await fetch("/api/whatsapp/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location: locationData }),
+      });
       await fetchStatus();
       setQrDataUrl(null);
       setMessage("All connections removed. Click Connect WhatsApp to get a new QR.");

@@ -20,14 +20,14 @@ function formatResolvedDM(feedbackId: string, name: string, trackingCode?: strin
     ? `${PUBLIC_FEEDBACK_BASE}/${feedbackId}?token=${trackingCode}`
     : `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
   return [
-    `🚗 *EcoSport TVM – Issue Resolved*`,
+    `🚗 *ECOSTVM – Issue Resolved*`,
     "",
     `Hi ${name}! Your service concern has been resolved by our team.`,
     "",
     `Please take a moment to rate your experience:`,
     url,
     "",
-    `Thank you for being part of EcoSport Owners Club! 🙏`,
+    `Thank you for being part of ECOSTVM! 🙏`,
   ].join("\n");
 }
 
@@ -149,6 +149,36 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     console.error("[api/feedback/:id PATCH]", e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to update feedback" },
+      { status: 500 }
+    );
+  }
+}
+
+// ─── DELETE (admin only) ───────────────────────────────────────────────────────
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const adminCookie = request.cookies.get("ecostvm_admin")?.value;
+  if (adminCookie !== "1") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const id = await resolveId(context);
+    if (!id) {
+      return NextResponse.json({ error: "Invalid feedback id" }, { status: 400 });
+    }
+
+    const db = await getDb();
+    const result = await db.collection("feedback").deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: "Feedback not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    console.error("[api/feedback/:id DELETE]", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to delete feedback" },
       { status: 500 }
     );
   }

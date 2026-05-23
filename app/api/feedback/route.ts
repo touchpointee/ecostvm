@@ -9,7 +9,7 @@ import {
 import { getDb } from "@/lib/mongo";
 import { startBackgroundJobs } from "@/lib/backgroundJobs";
 
-const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
+const HEADER = "🚗 *ECOSTVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
   process.env.PUBLIC_FEEDBACK_URL || "https://example.com/feedback";
 
@@ -43,7 +43,7 @@ function formatGroupMessage(
 function formatCustomerMessage(feedbackId: string, name: string, trackingCode: string): string {
   const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}?token=${trackingCode}`;
   return [
-    `🚗 *EcoSport TVM – Feedback Received*`,
+    `🚗 *ECOSTVM – Feedback Received*`,
     "",
     `Hi ${name}! Thank you for your feedback.`,
     "",
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         });
         if (restrictedMember) {
           const msg = restrictedMember.isBlocked
-            ? "You are not a part of EcoSport TVM now."
+            ? "You are not a part of ECOSTVM now."
             : "You have sold your vehicle and cannot submit service feedback.";
           return NextResponse.json({ error: msg }, { status: 403 });
         }

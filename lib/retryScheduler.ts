@@ -8,7 +8,7 @@ import {
   sendDirectMessageWithRetry,
 } from "./whatsapp";
 
-const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
+const HEADER = "🚗 *ECOSTVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
   process.env.PUBLIC_FEEDBACK_URL || "https://example.com/feedback";
 
@@ -20,7 +20,7 @@ function formatGroupMessage(feedbackId: string): string {
 function formatCustomerMessage(feedbackId: string, name: string): string {
   const url = `${PUBLIC_FEEDBACK_BASE}/${feedbackId}`;
   return [
-    `🚗 *EcoSport TVM – Feedback Received*`,
+    `🚗 *ECOSTVM – Feedback Received*`,
     "",
     `Hi ${name}! Thank you for your feedback.`,
     "",

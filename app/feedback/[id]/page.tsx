@@ -116,7 +116,7 @@ export default async function FeedbackDetailPage({
           <div className="relative w-full" style={{ aspectRatio: "16/7" }}>
             <Image
               src="/club-banner.jpg"
-              alt="EcoSport TVM Club"
+              alt="ECOSTVM"
               fill
               className="object-cover object-top"
               priority
@@ -125,7 +125,7 @@ export default async function FeedbackDetailPage({
           </div>
           <div className="border-t-4 border-[#4A5FA5] px-6 py-5">
             <h1 className="text-xl font-bold text-black sm:text-2xl">
-              Welcome to Ecosport owner&apos;s club Trivandrum
+              Welcome to ECOSTVM
             </h1>
             <p className="mt-0.5 text-sm text-black/50 italic">(TVM/TC/34/2020)</p>
             <p className="mt-3 text-sm font-semibold text-black">Service Feedback</p>
@@ -233,7 +233,7 @@ function ErrorPage({
     <div className="min-h-screen bg-white px-4 py-12">
       <div className="mx-auto max-w-2xl rounded-2xl border-2 border-black bg-white p-8 shadow-lg">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-yellow-500">
-          EcoSport TVM
+          ECOSTVM
         </p>
         <h1 className="mt-2 text-2xl font-bold text-black">{title}</h1>
         <p className="mt-2 text-sm text-black/70">{message}</p>

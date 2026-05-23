@@ -4,7 +4,7 @@ import { getDb } from "@/lib/mongo";
 import { getJids, parseGroupJids } from "@/lib/jids";
 import { getConnectionStatus, sendComposing, sendToGroupWithRetry } from "@/lib/whatsapp";
 
-const HEADER = "🚗 *EcoSport TVM - Service Feedback*";
+const HEADER = "🚗 *ECOSTVM - Service Feedback*";
 const PUBLIC_FEEDBACK_BASE =
   process.env.PUBLIC_FEEDBACK_URL || "https://example.com/feedback";
 

@@ -22,9 +22,10 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
 } from "@whiskeysockets/baileys";
 import pino from "pino";
-import { access, mkdir, readFile, rm } from "fs/promises";
+import { access, mkdir, readFile, rm, appendFile } from "fs/promises";
 import path from "path";
 import { saveStoredQR } from "./whatsappQRStore";
+import { getDb } from "./mongo";
 
 // Persistent session folder – mount as a volume in Coolify so the session
 // survives container redeploys and prevents constant QR re-scans.
@@ -80,6 +81,44 @@ export function getCurrentQR(): string | null {
 }
 export function getSocket(): WASocket | null {
   return G.sock;
+}
+
+// ─── Disconnection Logging Helpers ───────────────────────────────────────────
+function getDisconnectReasonName(code: number | undefined): string {
+  if (!code) return "Unknown Close Reason";
+  switch (code) {
+    case 328:
+      return "Connection Closed (328): The socket connection was closed cleanly or by server.";
+    case 401:
+      return "Logged Out (401): The session was terminated from the phone or manually.";
+    case 408:
+      return "Connection Lost / Timed Out (408): Client lost network connectivity or stream timed out.";
+    case 411:
+      return "Connection Replaced (411): Another WhatsApp session took over this account.";
+    case 500:
+      return "Bad Session (500): Session files are corrupted, invalid, or decryption failed.";
+    case 515:
+      return "Restart Required (515): Baileys socket requires a restart/reconnection.";
+    default:
+      return `Custom/Other Code (${code})`;
+  }
+}
+
+export async function logDisconnection(logEntry: any): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.collection("whatsapp_logs").insertOne(logEntry);
+  } catch (dbErr) {
+    console.error("[whatsapp] Failed to log disconnection to database:", dbErr);
+  }
+
+  try {
+    const logFilePath = path.join(process.cwd(), ".data", "whatsapp_disconnections.log");
+    const logString = JSON.stringify(logEntry) + "\n";
+    await appendFile(logFilePath, logString, "utf8");
+  } catch (fileErr) {
+    console.error("[whatsapp] Failed to log disconnection to file:", fileErr);
+  }
 }
 
 // ─── Logout ───────────────────────────────────────────────────────────────────
@@ -190,10 +229,34 @@ async function createSocket(): Promise<WASocket> {
         try {
           await rm(AUTH_FOLDER, { recursive: true, force: true });
         } catch {}
+        await logDisconnection({
+          timestamp: new Date(),
+          type: "manual",
+          action: "Connection Closed (Logout Completed)",
+          statusCode,
+          reason: "Manual logout successfully completed.",
+        });
         return;
       }
 
       console.log(`[whatsapp] closed (code ${statusCode}), reconnecting in 5 s…`);
+
+      await logDisconnection({
+        timestamp: new Date(),
+        type: "automatic",
+        action: "Auto Disconnected",
+        statusCode,
+        reason: getDisconnectReasonName(statusCode),
+        error: lastDisconnect?.error
+          ? {
+              message: lastDisconnect.error.message,
+              stack: lastDisconnect.error.stack,
+              name: lastDisconnect.error.name,
+              output: (lastDisconnect.error as any).output,
+            }
+          : null,
+      });
+
       setTimeout(() => {
         connect().catch((e) =>
           console.error("[whatsapp] auto-reconnect failed", e)

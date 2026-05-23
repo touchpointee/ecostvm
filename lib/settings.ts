@@ -73,7 +73,7 @@ export async function updateAdminPassword(newPassword: string): Promise<void> {
 //   {vehicleNumber} {place} {variant} {vehicleColor} {purchaseMonth}
 //   {manufacturingYear} {bloodGroup} {dateOfBirth} {mailId} {occupation}
 
-export const DEFAULT_WELCOME_TEMPLATE = `Welcome to EcoSport TVM! 🎉
+export const DEFAULT_WELCOME_TEMPLATE = `Welcome to ECOSTVM! 🎉
 
 Dear {name},
 
@@ -83,9 +83,9 @@ Your membership has been approved.
 📱 Contact: {contactNumber}
 🚗 Vehicle: {vehicleNumber} ({model})
 
-We're thrilled to have you as part of the EcoSport Owners Club, Trivandrum!
+We're thrilled to have you as part of ECOSTVM!
 
-– Team EcoSport TVM`;
+– Team ECOSTVM`;
 
 export async function getWelcomeTemplate(): Promise<string> {
   const col = await settingsCollection();

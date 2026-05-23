@@ -53,7 +53,7 @@ export default function AdminLayout({
   const navContent = (
     <>
       <div className="px-4 pb-4">
-        <span className="text-sm font-semibold text-white">EcoSport TVM</span>
+        <span className="text-sm font-semibold text-white">ECOSTVM</span>
         <span className="block text-xs text-white/70">Admin</span>
       </div>
       <nav className="flex-1 space-y-0.5 px-2">
@@ -118,7 +118,7 @@ export default function AdminLayout({
       <header className="sticky top-0 z-40 border-b-2 border-black bg-black md:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <div>
-            <span className="text-sm font-semibold text-white">EcoSport TVM</span>
+            <span className="text-sm font-semibold text-white">ECOSTVM</span>
             <span className="block text-xs text-white/70">Admin</span>
           </div>
           <button
@@ -151,7 +151,7 @@ export default function AdminLayout({
           <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col border-r-2 border-black bg-black py-4 shadow-xl">
             <div className="mb-2 flex items-center justify-between px-4">
               <div>
-                <span className="text-sm font-semibold text-white">EcoSport TVM</span>
+                <span className="text-sm font-semibold text-white">ECOSTVM</span>
                 <span className="block text-xs text-white/70">Admin</span>
               </div>
               <button
