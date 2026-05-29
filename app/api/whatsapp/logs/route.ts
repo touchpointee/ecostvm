@@ -4,7 +4,6 @@ import { getDb } from "@/lib/mongo";
 const ADMIN_COOKIE = "ecostvm_admin";
 
 type WhatsAppLogDoc = {
-  _id: { toString(): string };
   timestamp?: Date | string;
   type?: string;
   action?: string;
