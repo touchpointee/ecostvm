@@ -4,6 +4,19 @@ import { useCallback, useEffect, useState } from "react";
 
 type Status = "Connected" | "Connecting" | "Disconnected";
 
+type WhatsAppLog = {
+  id: string;
+  timestamp: string | null;
+  type: string;
+  action: string;
+  ip: string;
+  userAgent: string;
+  adminAuthorized: boolean | null;
+  statusCode: number | null;
+  reason: string;
+  location: unknown;
+};
+
 function splitJids(value: string): string[] {
   return Array.from(
     new Set(
@@ -34,6 +47,9 @@ export default function WhatsAppConfigPage() {
   const [connectClickedAt, setConnectClickedAt] = useState<number | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [whatsappLogs, setWhatsappLogs] = useState<WhatsAppLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -79,11 +95,28 @@ export default function WhatsAppConfigPage() {
     }
   }, []);
 
+  const fetchLogs = useCallback(async () => {
+    setLoadingLogs(true);
+    setLogsError(null);
+    try {
+      const res = await fetch("/api/whatsapp/logs?limit=25", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load logs.");
+      setWhatsappLogs(data.logs ?? []);
+    } catch (e) {
+      setLogsError(e instanceof Error ? e.message : "Failed to load logs.");
+      setWhatsappLogs([]);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStatus();
     fetchJids();
     fetchQR();
-  }, [fetchStatus, fetchJids, fetchQR]);
+    fetchLogs();
+  }, [fetchStatus, fetchJids, fetchQR, fetchLogs]);
 
   useEffect(() => {
     if (connectClickedAt == null) return;
@@ -219,6 +252,7 @@ export default function WhatsAppConfigPage() {
         body: JSON.stringify({ location: locationData }),
       });
       await fetchStatus();
+      await fetchLogs();
       setQrDataUrl(null);
       setMessage("WhatsApp session logged out.");
     } catch {
@@ -270,6 +304,7 @@ export default function WhatsAppConfigPage() {
         body: JSON.stringify({ location: locationData }),
       });
       await fetchStatus();
+      await fetchLogs();
       setQrDataUrl(null);
       setMessage("All connections removed. Click Connect WhatsApp to get a new QR.");
     } catch {
@@ -539,6 +574,72 @@ export default function WhatsAppConfigPage() {
             >
               Fetch groups
             </button>
+          </section>
+
+          <section className="rounded-xl border-2 border-black bg-white p-6 shadow-md">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-black">Logout / disconnection logs</h2>
+                <p className="mt-1 text-sm text-black/80">Recent WhatsApp disconnect events saved from the server.</p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchLogs}
+                disabled={loadingLogs}
+                className="rounded-lg border-2 border-black bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-black hover:text-white disabled:opacity-70"
+              >
+                {loadingLogs ? "Refreshing..." : "Refresh logs"}
+              </button>
+            </div>
+            {logsError && (
+              <div className="mt-4 rounded-lg border-2 border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                {logsError}
+              </div>
+            )}
+            <div className="mt-4 overflow-hidden rounded-lg border-2 border-black">
+              {loadingLogs && whatsappLogs.length === 0 ? (
+                <div className="p-4 text-sm text-black/70">Loading logs...</div>
+              ) : whatsappLogs.length === 0 ? (
+                <div className="p-4 text-sm text-black/70">No WhatsApp logs found.</div>
+              ) : (
+                <div className="max-h-96 overflow-y-auto divide-y-2 divide-black">
+                  {whatsappLogs.map((log) => {
+                    const locationText =
+                      log.location && typeof log.location === "object"
+                        ? JSON.stringify(log.location)
+                        : log.location
+                          ? String(log.location)
+                          : "";
+                    return (
+                      <div key={log.id} className="bg-white p-4 text-sm text-black">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-semibold">
+                            {log.action || "WhatsApp event"}
+                            {log.type && <span className="ml-2 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-900">{log.type}</span>}
+                          </p>
+                          <p className="text-xs text-black/60">
+                            {log.timestamp
+                              ? new Date(log.timestamp).toLocaleString("en-IN", {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })
+                              : "Time unknown"}
+                          </p>
+                        </div>
+                        <div className="mt-2 grid gap-1 text-xs text-black/70 sm:grid-cols-2">
+                          {log.ip && <p className="break-all">IP: {log.ip}</p>}
+                          {log.adminAuthorized !== null && <p>Admin authorized: {log.adminAuthorized ? "Yes" : "No"}</p>}
+                          {log.statusCode !== null && <p>Status code: {log.statusCode}</p>}
+                          {log.reason && <p className="sm:col-span-2">Reason: {log.reason}</p>}
+                          {locationText && <p className="break-all sm:col-span-2">Location: {locationText}</p>}
+                          {log.userAgent && <p className="break-all sm:col-span-2">Device: {log.userAgent}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </section>
 
           {groupsModalOpen && (
