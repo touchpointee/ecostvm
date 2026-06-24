@@ -6,7 +6,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export default function FeedbackPage() {
-  const [activeTab, setActiveTab] = useState<"feedback" | "service">("feedback");
+  const [activeTab, setActiveTab] = useState<"feedback" | "service" | null>(null);
 
   // Common Member profile states (autofilled)
   const [name, setName] = useState("");
@@ -287,9 +287,11 @@ export default function FeedbackPage() {
               Welcome to ECOSTVM
             </h1>
             <p className="mt-0.5 text-sm text-black/50 italic">(TVM/TC/34/2020)</p>
-            <p className="mt-3 text-sm font-semibold text-black">
-              {activeTab === "feedback" ? "Service Feedback" : "Service Booking"}
-            </p>
+            {activeTab && (
+              <p className="mt-3 text-sm font-semibold text-black">
+                {activeTab === "feedback" ? "Service Feedback" : "Service Booking"}
+              </p>
+            )}
           </div>
         </div>
 
@@ -319,7 +321,8 @@ export default function FeedbackPage() {
           </button>
         </div>
 
-        <div className="w-full rounded-b-2xl border-x-2 border-b-2 border-black bg-white p-6 shadow-lg sm:rounded-2xl sm:border-t-2 sm:mt-5 sm:p-8">
+        {activeTab !== null && (
+          <div className="w-full rounded-b-2xl border-x-2 border-b-2 border-black bg-white p-6 shadow-lg sm:rounded-2xl sm:border-t-2 sm:mt-5 sm:p-8">
           
           {activeTab === "feedback" ? (
             <>
@@ -665,7 +668,8 @@ export default function FeedbackPage() {
             </>
           )}
 
-        </div>
+          </div>
+        )}
       </main>
       <Footer />
 
