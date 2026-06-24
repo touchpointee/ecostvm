@@ -309,7 +309,7 @@ export default function FeedbackPage() {
                 : "bg-white text-black hover:bg-black/5"
             }`}
           >
-            💬 Feedback Form
+            💬 Service Feedback
           </button>
           <button
             type="button"
@@ -320,7 +320,7 @@ export default function FeedbackPage() {
                 : "bg-white text-black hover:bg-black/5"
             }`}
           >
-            🚗 Register Service
+            🚗 Service Booking
           </button>
         </div>
 
@@ -504,7 +504,7 @@ export default function FeedbackPage() {
                   disabled={submitting}
                   className="w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black shadow-md hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 disabled:opacity-70"
                 >
-                  {submitting ? "Submitting..." : "Submit Feedback"}
+                  {submitting ? "Submitting..." : "Submit Service Feedback"}
                 </button>
               </form>
             </>
@@ -714,7 +714,7 @@ export default function FeedbackPage() {
             <div className="text-center">
               <div className="text-4xl">🙏</div>
               <h2 id="feedback-success-title" className="mt-3 text-xl font-bold text-black">
-                Feedback Submitted!
+                Service Feedback Submitted!
               </h2>
               <p className="mt-1 text-sm text-black/70">
                 Your concern has been recorded successfully.
@@ -765,7 +765,7 @@ export default function FeedbackPage() {
             <div className="text-center">
               <div className="text-4xl">🚗</div>
               <h2 id="service-success-title" className="mt-3 text-xl font-bold text-black">
-                Service Request Registered!
+                Service Booking Registered!
               </h2>
               <p className="mt-1 text-sm text-black/70">
                 Your service booking request has been recorded successfully.
