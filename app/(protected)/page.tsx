@@ -6,9 +6,14 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 
 export default function FeedbackPage() {
+  const [activeTab, setActiveTab] = useState<"feedback" | "service">("feedback");
+
+  // Common Member profile states (autofilled)
   const [name, setName] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [vehicleNumber, setVehicleNumber] = useState("");
+  
+  // Feedback form states
   const [serviceDate, setServiceDate] = useState("");
   const [advisor, setAdvisor] = useState("");
   const [pickupDrop, setPickupDrop] = useState("");
@@ -18,6 +23,23 @@ export default function FeedbackPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [submittedCode, setSubmittedCode] = useState("");
+
+  // Service form states
+  const [preferredDate, setPreferredDate] = useState("");
+  const [odometer, setOdometer] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [remarks, setRemarks] = useState("");
+  const [serviceSubmitting, setServiceSubmitting] = useState(false);
+  const [serviceMessage, setServiceMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [serviceSuccessModalOpen, setServiceSuccessModalOpen] = useState(false);
+  const [serviceSubmittedCode, setServiceSubmittedCode] = useState("");
+
+  // Linked service states
+  const [pastServices, setPastServices] = useState<
+    { id: string; appointmentDate: string; vehicleNumber: string; types: string[] }[]
+  >([]);
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+
   const [devMode, setDevMode] = useState<boolean | null>(null);
   const [autofillValues, setAutofillValues] = useState({
     name: "",
@@ -32,6 +54,18 @@ export default function FeedbackPage() {
       .catch(() => setDevMode(false));
   }, []);
 
+  async function loadPastServices() {
+    try {
+      const res = await fetch("/api/service/member");
+      const data = await res.json();
+      if (res.ok && data.items) {
+        setPastServices(data.items);
+      }
+    } catch {
+      // silently ignore past services fetch error
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -43,7 +77,7 @@ export default function FeedbackPage() {
 
         const nextValues = {
           name: data.member.name ?? "",
-          contactNumber: (data.member.contactNumber ?? data.phoneNumber ?? "").replace(/\\D/g, '').slice(-10),
+          contactNumber: (data.member.contactNumber ?? data.phoneNumber ?? "").replace(/\D/g, '').slice(-10),
           vehicleNumber: data.member.vehicleNumber ?? "",
         };
 
@@ -57,6 +91,7 @@ export default function FeedbackPage() {
     }
 
     loadMemberProfile();
+    loadPastServices();
     return () => {
       cancelled = true;
     };
@@ -102,6 +137,7 @@ export default function FeedbackPage() {
           pickupDrop,
           concerns,
           type,
+          serviceId: selectedServiceId || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -112,6 +148,8 @@ export default function FeedbackPage() {
       setSubmittedCode(data.trackingCode ?? "");
       setMessage({ type: "success", text: "Thank you! Your feedback has been submitted." });
       setSuccessModalOpen(true);
+      
+      // Reset feedback fields
       setName(autofillValues.name);
       setContactNumber(autofillValues.contactNumber);
       setVehicleNumber(autofillValues.vehicleNumber);
@@ -120,10 +158,69 @@ export default function FeedbackPage() {
       setPickupDrop("");
       setConcerns("");
       setType("");
+      setSelectedServiceId("");
     } catch {
       setMessage({ type: "error", text: "Something went wrong. Please try again." });
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleServiceSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!/^[a-zA-Z\s]+$/.test(name)) {
+      setServiceMessage({ type: "error", text: "Name should only contain letters and spaces." });
+      return;
+    }
+    if (!/^\d{10}$/.test(contactNumber)) {
+      setServiceMessage({ type: "error", text: "Contact number must be exactly 10 digits." });
+      return;
+    }
+    if (!preferredDate || !odometer || selectedTypes.length === 0) {
+      setServiceMessage({ type: "error", text: "Please fill in all required fields." });
+      return;
+    }
+
+    setServiceSubmitting(true);
+    setServiceMessage(null);
+    try {
+      const res = await fetch("/api/service", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          contactNumber,
+          vehicleNumber,
+          appointmentDate: preferredDate,
+          odometer: Number(odometer),
+          types: selectedTypes,
+          remarks,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setServiceMessage({ type: "error", text: data.error || "Failed to submit service booking." });
+        return;
+      }
+      setServiceSubmittedCode(data.trackingCode ?? "");
+      setServiceMessage({ type: "success", text: "Thank you! Your service booking request has been submitted." });
+      setServiceSuccessModalOpen(true);
+      
+      // Reset service fields
+      setName(autofillValues.name);
+      setContactNumber(autofillValues.contactNumber);
+      setVehicleNumber(autofillValues.vehicleNumber);
+      setPreferredDate("");
+      setOdometer("");
+      setSelectedTypes([]);
+      setRemarks("");
+      
+      // Reload member's service list
+      loadPastServices();
+    } catch {
+      setServiceMessage({ type: "error", text: "Something went wrong. Please try again." });
+    } finally {
+      setServiceSubmitting(false);
     }
   }
 
@@ -153,7 +250,7 @@ export default function FeedbackPage() {
             </div>
             <h2 className="text-2xl font-extrabold text-black">Developer Mode</h2>
             <p className="mt-3 text-sm font-medium text-black/70 leading-relaxed">
-              Feedback submission is currently unavailable.
+              Portal submission is currently unavailable.
             </p>
             <div className="mt-5 rounded-2xl border-2 border-yellow-400 bg-yellow-50 px-5 py-4">
               <p className="text-sm text-black/60 leading-relaxed">
@@ -190,161 +287,379 @@ export default function FeedbackPage() {
               Welcome to ECOSTVM
             </h1>
             <p className="mt-0.5 text-sm text-black/50 italic">(TVM/TC/34/2020)</p>
-            <p className="mt-3 text-sm font-semibold text-black">Service Feedback</p>
+            <p className="mt-3 text-sm font-semibold text-black">
+              {activeTab === "feedback" ? "Service Feedback" : "Service Booking"}
+            </p>
           </div>
         </div>
 
-        <div className="w-full rounded-b-2xl border-x-2 border-b-2 border-black bg-white p-6 shadow-lg sm:rounded-2xl sm:border-t-2 sm:mt-5 sm:p-8">
-          <div className="border-b-2 border-black pb-6">
-            <p className="text-sm text-black/80">
-              Share feedback or concerns about your recent service so the team can assist you.
-            </p>
-          </div>
+        {/* Tabs switcher */}
+        <div className="mt-5 flex gap-2 px-4 sm:px-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab("feedback")}
+            className={`flex-1 rounded-full py-3 text-sm font-bold border-2 border-black shadow-md transition-all ${
+              activeTab === "feedback"
+                ? "bg-yellow-400 text-black"
+                : "bg-white text-black hover:bg-black/5"
+            }`}
+          >
+            💬 Feedback Form
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("service")}
+            className={`flex-1 rounded-full py-3 text-sm font-bold border-2 border-black shadow-md transition-all ${
+              activeTab === "service"
+                ? "bg-yellow-400 text-black"
+                : "bg-white text-black hover:bg-black/5"
+            }`}
+          >
+            🚗 Register Service
+          </button>
+        </div>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-black">
-                Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                pattern="[a-zA-Z ]+"
-                title="Name should only contain letters and spaces"
-                value={name}
-                onChange={(e) => setName(e.target.value.replace(/[^a-zA-Z ]/g, ''))}
-                placeholder="Your name"
-                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="contactNumber" className="block text-sm font-medium text-black">
-                Contact no
-              </label>
-              <input
-                id="contactNumber"
-                type="tel"
-                inputMode="numeric"
-                pattern="[0-9]{10}"
-                maxLength={10}
-                title="Contact number must be exactly 10 digits"
-                value={contactNumber}
-                onChange={(e) => setContactNumber(e.target.value.replace(/\\D/g, ''))}
-                placeholder="Your phone number"
-                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="vehicleNumber" className="block text-sm font-medium text-black">
-                Vehicle number
-              </label>
-              <input
-                id="vehicleNumber"
-                type="text"
-                value={vehicleNumber}
-                onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-                placeholder="Vehicle registration number"
-                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 uppercase"
-                required
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="serviceDate" className="block text-sm font-medium text-black">
-                  Service date
-                </label>
-                <input
-                  id="serviceDate"
-                  type="date"
-                  max={new Date().toISOString().split('T')[0]}
-                  value={serviceDate}
-                  onChange={(e) => setServiceDate(e.target.value)}
-                  className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                  required
-                />
+        <div className="w-full rounded-b-2xl border-x-2 border-b-2 border-black bg-white p-6 shadow-lg sm:rounded-2xl sm:border-t-2 sm:mt-5 sm:p-8">
+          
+          {activeTab === "feedback" ? (
+            <>
+              <div className="border-b-2 border-black pb-6">
+                <p className="text-sm text-black/80">
+                  Share feedback or concerns about your recent service so the team can assist you.
+                </p>
               </div>
-              <div>
-                <label htmlFor="advisor" className="block text-sm font-medium text-black">
-                  Advisor
-                </label>
-                <input
-                  id="advisor"
-                  type="text"
-                  value={advisor}
-                  onChange={(e) => setAdvisor(e.target.value)}
-                  placeholder="Service advisor name"
-                  className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                  required
-                />
+
+              <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-black">
+                    Name
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    pattern="[a-zA-Z ]+"
+                    title="Name should only contain letters and spaces"
+                    value={name}
+                    onChange={(e) => setName(e.target.value.replace(/[^a-zA-Z ]/g, ''))}
+                    placeholder="Your name"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="contactNumber" className="block text-sm font-medium text-black">
+                    Contact no
+                  </label>
+                  <input
+                    id="contactNumber"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    title="Contact number must be exactly 10 digits"
+                    value={contactNumber}
+                    onChange={(e) => setContactNumber(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Your phone number"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="vehicleNumber" className="block text-sm font-medium text-black">
+                    Vehicle number
+                  </label>
+                  <input
+                    id="vehicleNumber"
+                    type="text"
+                    value={vehicleNumber}
+                    onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                    placeholder="Vehicle registration number"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 uppercase"
+                    required
+                  />
+                </div>
+
+                {/* Optional linked service booking dropdown */}
+                {pastServices.length > 0 && (
+                  <div>
+                    <label htmlFor="serviceId" className="block text-sm font-medium text-black">
+                      Select related service (optional)
+                    </label>
+                    <select
+                      id="serviceId"
+                      value={selectedServiceId}
+                      onChange={(e) => setSelectedServiceId(e.target.value)}
+                      className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    >
+                      <option value="">None / Select Service</option>
+                      {pastServices.map((srv) => (
+                        <option key={srv.id} value={srv.id}>
+                          {srv.appointmentDate} — {srv.vehicleNumber} ({srv.types.join(", ")})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="serviceDate" className="block text-sm font-medium text-black">
+                      Service date
+                    </label>
+                    <input
+                      id="serviceDate"
+                      type="date"
+                      max={new Date().toISOString().split('T')[0]}
+                      value={serviceDate}
+                      onChange={(e) => setServiceDate(e.target.value)}
+                      className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="advisor" className="block text-sm font-medium text-black">
+                      Advisor
+                    </label>
+                    <input
+                      id="advisor"
+                      type="text"
+                      value={advisor}
+                      onChange={(e) => setAdvisor(e.target.value)}
+                      placeholder="Service advisor name"
+                      className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="type" className="block text-sm font-medium text-black">
+                    Feedback group
+                  </label>
+                  <select
+                    id="type"
+                    value={type}
+                    onChange={(e) => setType(e.target.value as "Appreciation" | "Escalation" | "")}
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  >
+                    <option value="">Select group</option>
+                    <option value="Appreciation">Appreciation</option>
+                    <option value="Escalation">Escalation</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="pickupDrop" className="block text-sm font-medium text-black">
+                    Pickup / drop
+                  </label>
+                  <select
+                    id="pickupDrop"
+                    value={pickupDrop}
+                    onChange={(e) => setPickupDrop(e.target.value)}
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  >
+                    <option value="">Select option</option>
+                    <option value="Pickup">Pickup</option>
+                    <option value="Drop">Drop</option>
+                    <option value="Pickup & Drop">Pickup & Drop</option>
+                    <option value="Drive in">Drive in</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="concerns" className="block text-sm font-medium text-black">
+                    Service feedback / concerns
+                  </label>
+                  <textarea
+                    id="concerns"
+                    rows={4}
+                    value={concerns}
+                    onChange={(e) => setConcerns(e.target.value)}
+                    placeholder="Describe your service experience, issues, or concerns..."
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                {message && (
+                  <p
+                    className={`text-sm ${
+                      message.type === "success" ? "text-yellow-600" : "text-black"
+                    }`}
+                  >
+                    {message.text}
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black shadow-md hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 disabled:opacity-70"
+                >
+                  {submitting ? "Submitting..." : "Submit Feedback"}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <div className="border-b-2 border-black pb-6">
+                <p className="text-sm text-black/80 font-bold flex items-center gap-1.5">
+                  🚗 Service Booking Request
+                </p>
+                <p className="text-xs text-black/50 mt-1">
+                  Fill in your vehicle details to register a service appointment request.
+                </p>
               </div>
-            </div>
-            <div>
-              <label htmlFor="type" className="block text-sm font-medium text-black">
-                Feedback group
-              </label>
-              <select
-                id="type"
-                value={type}
-                onChange={(e) => setType(e.target.value as "Appreciation" | "Escalation" | "")}
-                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                required
-              >
-                <option value="">Select group</option>
-                <option value="Appreciation">Appreciation</option>
-                <option value="Escalation">Escalation</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="pickupDrop" className="block text-sm font-medium text-black">
-                Pickup / drop
-              </label>
-              <select
-                id="pickupDrop"
-                value={pickupDrop}
-                onChange={(e) => setPickupDrop(e.target.value)}
-                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                required
-              >
-                <option value="">Select option</option>
-                <option value="Pickup">Pickup</option>
-                <option value="Drop">Drop</option>
-                <option value="Pickup & Drop">Pickup & Drop</option>
-                <option value="Drive in">Drive in</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="concerns" className="block text-sm font-medium text-black">
-                Service feedback / concerns
-              </label>
-              <textarea
-                id="concerns"
-                rows={4}
-                value={concerns}
-                onChange={(e) => setConcerns(e.target.value)}
-                placeholder="Describe your service experience, issues, or concerns..."
-                className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                required
-              />
-            </div>
-            {message && (
-              <p
-                className={`text-sm ${
-                  message.type === "success" ? "text-yellow-600" : "text-black"
-                }`}
-              >
-                {message.text}
-              </p>
-            )}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black shadow-md hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 disabled:opacity-70"
-            >
-              {submitting ? "Submitting..." : "Submit Feedback"}
-            </button>
-          </form>
+
+              <form onSubmit={handleServiceSubmit} className="mt-6 space-y-5">
+                <div>
+                  <label htmlFor="serviceName" className="block text-sm font-medium text-black">
+                    Customer Name <span className="text-yellow-600 font-bold">*</span>
+                  </label>
+                  <input
+                    id="serviceName"
+                    type="text"
+                    pattern="[a-zA-Z ]+"
+                    title="Name should only contain letters and spaces"
+                    value={name}
+                    onChange={(e) => setName(e.target.value.replace(/[^a-zA-Z ]/g, ''))}
+                    placeholder="Your name"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="serviceContact" className="block text-sm font-medium text-black">
+                    Contact Number <span className="text-yellow-600 font-bold">*</span>
+                  </label>
+                  <input
+                    id="serviceContact"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    maxLength={10}
+                    title="Contact number must be exactly 10 digits"
+                    value={contactNumber}
+                    onChange={(e) => setContactNumber(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Your phone number"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="serviceVehicle" className="block text-sm font-medium text-black">
+                    Vehicle Registration Number <span className="text-yellow-600 font-bold">*</span>
+                  </label>
+                  <input
+                    id="serviceVehicle"
+                    type="text"
+                    value={vehicleNumber}
+                    onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                    placeholder="Vehicle registration number"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 uppercase"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="preferredDate" className="block text-sm font-medium text-black">
+                    Preferred Appointment Date <span className="text-yellow-600 font-bold">*</span>
+                  </label>
+                  <input
+                    id="preferredDate"
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    value={preferredDate}
+                    onChange={(e) => setPreferredDate(e.target.value)}
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="odometer" className="block text-sm font-medium text-black">
+                    Current Odometer Reading (KMs) <span className="text-yellow-600 font-bold">*</span>
+                  </label>
+                  <input
+                    id="odometer"
+                    type="number"
+                    min={0}
+                    value={odometer}
+                    onChange={(e) => setOdometer(e.target.value)}
+                    placeholder="e.g. 45000"
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-black mb-2">
+                    Type of Service Required <span className="text-yellow-600 font-bold">*</span>
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {[
+                      "Periodic Service",
+                      "Maintenance",
+                      "Warranty Claim",
+                      "Body Work / Accident Repair",
+                    ].map((serviceType) => {
+                      const isChecked = selectedTypes.includes(serviceType);
+                      return (
+                        <label
+                          key={serviceType}
+                          className={`flex items-center gap-3 rounded-lg border-2 border-black p-3 cursor-pointer transition-all ${
+                            isChecked ? "bg-yellow-50 border-yellow-500 font-semibold" : "bg-white hover:bg-black/5"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setSelectedTypes(selectedTypes.filter((t) => t !== serviceType));
+                              } else {
+                                setSelectedTypes([...selectedTypes, serviceType]);
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-black text-yellow-500 focus:ring-yellow-500"
+                          />
+                          <span className="text-sm text-black">{serviceType}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="remarks" className="block text-sm font-medium text-black">
+                    Additional Remarks / Specific Concerns (if any)
+                  </label>
+                  <textarea
+                    id="remarks"
+                    rows={4}
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    placeholder="Describe specific concerns, items to check, or body work details..."
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  />
+                </div>
+
+                {serviceMessage && (
+                  <p
+                    className={`text-sm ${
+                      serviceMessage.type === "success" ? "text-yellow-600 font-semibold" : "text-black"
+                    }`}
+                  >
+                    {serviceMessage.text}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={serviceSubmitting}
+                  className="w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black shadow-md hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 disabled:opacity-70"
+                >
+                  {serviceSubmitting ? "Submitting..." : "Submit Service Booking"}
+                </button>
+              </form>
+            </>
+          )}
+
         </div>
       </main>
       <Footer />
@@ -393,6 +708,57 @@ export default function FeedbackPage() {
               type="button"
               onClick={() => setSuccessModalOpen(false)}
               className="mt-5 w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {serviceSuccessModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setServiceSuccessModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="service-success-title"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border-2 border-black bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="text-4xl">🚗</div>
+              <h2 id="service-success-title" className="mt-3 text-xl font-bold text-black">
+                Service Request Registered!
+              </h2>
+              <p className="mt-1 text-sm text-black/70">
+                Your service booking request has been recorded successfully.
+              </p>
+            </div>
+
+            {serviceSubmittedCode && (
+              <div className="mt-5 rounded-xl border-2 border-black bg-yellow-50 p-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-widest text-black/50">
+                  Your Reference Code
+                </p>
+                <p className="mt-2 text-4xl font-bold tracking-[0.3em] text-black">
+                  {serviceSubmittedCode}
+                </p>
+                <p className="mt-2 text-xs text-black/50">
+                  Save this code to track your booking
+                </p>
+              </div>
+            )}
+
+            <p className="mt-4 text-center text-xs text-black/50">
+              A tracking link has been sent to your WhatsApp.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setServiceSuccessModalOpen(false)}
+              className="mt-5 w-full rounded-full bg-yellow-400 px-4 py-3 font-semibold text-black hover:bg-yellow-300 focus:outline-none focus:ring-2 focus:ring-yellow-500"
             >
               Done
             </button>

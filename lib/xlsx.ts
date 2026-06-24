@@ -511,3 +511,136 @@ export function createFeedbackWorkbook(rowsInput: FeedbackExportRow[]): Buffer {
   zip.addFile("docProps/app.xml", Buffer.from(appXml, "utf8"));
   return zip.toBuffer();
 }
+
+export type ServiceExportRow = {
+  createdAt: string;
+  name: string;
+  contactNumber: string;
+  vehicleNumber: string;
+  appointmentDate: string;
+  odometer: string;
+  types: string;
+  remarks: string;
+  whatsappSent: string;
+  whatsappError: string;
+  customerWhatsappSent: string;
+  customerWhatsappError: string;
+};
+
+export function createServicesWorkbook(rowsInput: ServiceExportRow[]): Buffer {
+  const headers = [
+    "Created At",
+    "Customer Name",
+    "Contact Number",
+    "Vehicle Number",
+    "Appointment Date",
+    "Odometer (KMs)",
+    "Service Types",
+    "Remarks/Concerns",
+    "Group WA Sent",
+    "Group WA Error",
+    "Customer WA Sent",
+    "Customer WA Error",
+  ];
+
+  const rows = [
+    headers,
+    ...rowsInput.map((row) => [
+      row.createdAt,
+      row.name,
+      row.contactNumber,
+      row.vehicleNumber,
+      row.appointmentDate,
+      row.odometer,
+      row.types,
+      row.remarks,
+      row.whatsappSent,
+      row.whatsappError,
+      row.customerWhatsappSent,
+      row.customerWhatsappError,
+    ]),
+  ];
+
+  const sheetRows = rows
+    .map((row, rowIndex) => {
+      const cells = row
+        .map((value, columnIndex) => {
+          const ref = `${excelColumnName(columnIndex)}${rowIndex + 1}`;
+          return `<c r="${ref}" t="inlineStr"><is><t>${xmlEscape(String(value ?? ""))}</t></is></c>`;
+        })
+        .join("");
+      return `<row r="${rowIndex + 1}">${cells}</row>`;
+    })
+    .join("");
+
+  const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Service Bookings" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`;
+
+  const workbookRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`;
+
+  const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetData>${sheetRows}</sheetData>
+</worksheet>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
+  <fills count="1"><fill><patternFill patternType="none"/></fill></fills>
+  <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`;
+
+  const created = new Date().toISOString();
+  const coreXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:creator>EcoSport TVM</dc:creator>
+  <cp:lastModifiedBy>EcoSport TVM</cp:lastModifiedBy>
+  <dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">${created}</dcterms:modified>
+</cp:coreProperties>`;
+
+  const appXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>EcoSport TVM</Application>
+</Properties>`;
+
+  const zip = new AdmZip();
+  zip.addFile("[Content_Types].xml", Buffer.from(contentTypesXml, "utf8"));
+  zip.addFile("_rels/.rels", Buffer.from(rootRelsXml, "utf8"));
+  zip.addFile("xl/workbook.xml", Buffer.from(workbookXml, "utf8"));
+  zip.addFile("xl/_rels/workbook.xml.rels", Buffer.from(workbookRelsXml, "utf8"));
+  zip.addFile("xl/worksheets/sheet1.xml", Buffer.from(sheetXml, "utf8"));
+  zip.addFile("xl/styles.xml", Buffer.from(stylesXml, "utf8"));
+  zip.addFile("docProps/core.xml", Buffer.from(coreXml, "utf8"));
+  zip.addFile("docProps/app.xml", Buffer.from(appXml, "utf8"));
+  return zip.toBuffer();
+}

@@ -9,6 +9,7 @@ export interface StoredJids {
   escalationGroupJid: string;
   birthdayGroupJid: string;
   registrationGroupJid: string;
+  serviceGroupJid: string;
 }
 
 const defaults: StoredJids = {
@@ -16,6 +17,7 @@ const defaults: StoredJids = {
   escalationGroupJid: "",
   birthdayGroupJid: "",
   registrationGroupJid: "",
+  serviceGroupJid: "",
 };
 
 export async function getJids(): Promise<StoredJids> {

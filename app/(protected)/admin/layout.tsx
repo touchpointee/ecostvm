@@ -38,6 +38,7 @@ export default function AdminLayout({
   const nav = [
     { href: "/admin", label: "Dashboard" },
     { href: "/admin/feedbacks", label: "Feedbacks" },
+    { href: "/admin/services", label: "Service Bookings" },
     { href: "/admin/registrations", label: "Registrations", badge: pendingCount },
     { href: "/admin/logins", label: "Members" },
     { href: "/admin/logins/search", label: "Search" },

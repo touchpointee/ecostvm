@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongo";
 import CustomerActions from "./CustomerActions";
@@ -76,6 +77,17 @@ export default async function FeedbackDetailPage({
     );
   }
 
+  let linkedService = null;
+  if (feedback.serviceId && ObjectId.isValid(feedback.serviceId)) {
+    try {
+      linkedService = await db
+        .collection("services")
+        .findOne({ _id: new ObjectId(feedback.serviceId) });
+    } catch (e) {
+      console.error("Failed to fetch linked service", e);
+    }
+  }
+
   const isCustomerView =
     token.length > 0 && token === String(feedback.trackingCode ?? "");
 
@@ -146,6 +158,30 @@ export default async function FeedbackDetailPage({
             {meta.description}
           </p>
         </div>
+
+        {/* Linked Service Request */}
+        {linkedService && (
+          <div className="rounded-2xl border-2 border-black bg-blue-50 p-5 shadow-md">
+            <p className="text-xs font-semibold uppercase tracking-wide text-black/50">
+              Linked Service Request
+            </p>
+            <p className="mt-3 text-sm text-black font-bold">
+              Preferred Date: {linkedService.appointmentDate} — Vehicle: {linkedService.vehicleNumber}
+            </p>
+            <p className="mt-1 text-xs text-black/70">
+              Service Types: {linkedService.types ? linkedService.types.join(", ") : "-"}
+            </p>
+            <div className="mt-3">
+              <Link
+                href={`/service/${String(linkedService._id)}?token=${linkedService.trackingCode || ""}`}
+                target="_blank"
+                className="inline-flex rounded-lg border-2 border-black bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-black hover:text-white"
+              >
+                View Linked Service Booking Details →
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Concerns */}
         <div className="rounded-2xl border-2 border-black bg-yellow-50 p-5">

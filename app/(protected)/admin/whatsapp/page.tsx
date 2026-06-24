@@ -35,6 +35,7 @@ export default function WhatsAppConfigPage() {
   const [escalationJid, setEscalationJid] = useState("");
   const [birthdayJid, setBirthdayJid] = useState("");
   const [registrationJid, setRegistrationJid] = useState("");
+  const [serviceJid, setServiceJid] = useState("");
   const [savingJids, setSavingJids] = useState(false);
   const [jidsSaved, setJidsSaved] = useState(false);
   const [fetchingGroups, setFetchingGroups] = useState(false);
@@ -81,16 +82,19 @@ export default function WhatsAppConfigPage() {
       const e = data.escalationGroupJid ?? "";
       const b = data.birthdayGroupJid ?? "";
       const r = data.registrationGroupJid ?? "";
+      const s = data.serviceGroupJid ?? "";
       setAppreciationJid(a);
       setEscalationJid(e);
       setBirthdayJid(b);
       setRegistrationJid(r);
-      setJidsSaved(Boolean(a || e || b || r));
+      setServiceJid(s);
+      setJidsSaved(Boolean(a || e || b || r || s));
     } catch {
       setAppreciationJid("");
       setEscalationJid("");
       setBirthdayJid("");
       setRegistrationJid("");
+      setServiceJid("");
       setJidsSaved(false);
     }
   }, []);
@@ -327,6 +331,7 @@ export default function WhatsAppConfigPage() {
           escalationGroupJid: escalationJid.trim(),
           birthdayGroupJid: birthdayJid.trim(),
           registrationGroupJid: registrationJid.trim(),
+          serviceGroupJid: serviceJid.trim(),
         }),
       });
       if (!res.ok) throw new Error("Save failed");
@@ -466,6 +471,7 @@ export default function WhatsAppConfigPage() {
                   { label: "Escalation group JID", value: escalationJid },
                   { label: "Birthday wishes group JID", value: birthdayJid },
                   { label: "New registration group JID", value: registrationJid },
+                  { label: "Service booking group JID", value: serviceJid },
                 ].map(({ label, value }) => {
                   const items = splitJids(value);
                   return (
@@ -542,6 +548,20 @@ export default function WhatsAppConfigPage() {
                     className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
                   />
                 </div>
+                <div>
+                  <label htmlFor="serviceJid" className="block font-medium text-black">Service booking group JID</label>
+                  <p className="mb-1 text-xs text-black/50">
+                    Groups that receive a notification whenever someone submits the service booking request form.
+                  </p>
+                  <textarea
+                    id="serviceJid"
+                    value={serviceJid}
+                    onChange={(e) => setServiceJid(e.target.value)}
+                    placeholder={"120363426233905530@g.us\n120363426233905531@g.us"}
+                    rows={3}
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2 text-black focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500"
+                  />
+                </div>
                 <div className="flex items-center gap-3">
                   <button
                     type="submit"
@@ -550,7 +570,7 @@ export default function WhatsAppConfigPage() {
                   >
                     {savingJids ? "Saving..." : "Save JIDs"}
                   </button>
-                  {(appreciationJid || escalationJid || birthdayJid || registrationJid) && (
+                  {(appreciationJid || escalationJid || birthdayJid || registrationJid || serviceJid) && (
                     <button
                       type="button"
                       onClick={() => setJidsSaved(true)}
