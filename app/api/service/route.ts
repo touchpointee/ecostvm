@@ -24,6 +24,7 @@ function formatGroupMessage(
     vehicleNumber?: string;
     appointmentDate?: string;
     odometer?: number;
+    advisor?: string;
     types?: string[];
     remarks?: string;
     trackingCode?: string;
@@ -40,6 +41,7 @@ function formatGroupMessage(
     details.vehicleNumber ? `Vehicle: ${details.vehicleNumber}` : undefined,
     details.appointmentDate ? `Preferred Date: ${details.appointmentDate}` : undefined,
     details.odometer != null ? `Odometer Reading: ${details.odometer} KMs` : undefined,
+    details.advisor ? `Advisor: ${details.advisor}` : undefined,
     details.types && details.types.length > 0 ? `Type of Service: ${details.types.join(", ")}` : undefined,
     details.remarks ? `Remarks/Concerns: ${details.remarks}` : undefined,
     "",
@@ -85,11 +87,12 @@ export async function POST(request: NextRequest) {
       vehicleNumber,
       appointmentDate,
       odometer,
+      advisor,
       types,
       remarks,
     } = body;
 
-    if (!name || !vehicleNumber || !appointmentDate || odometer == null || !types || !Array.isArray(types) || types.length === 0) {
+    if (!name || !vehicleNumber || !appointmentDate || odometer == null || !advisor || !types || !Array.isArray(types) || types.length === 0) {
       return NextResponse.json(
         {
           error:
@@ -141,6 +144,7 @@ export async function POST(request: NextRequest) {
       vehicleNumber: String(vehicleNumber).trim().toUpperCase(),
       appointmentDate: String(appointmentDate),
       odometer: Number(odometer),
+      advisor: String(advisor).trim(),
       types: types.map(t => String(t)),
       remarks: remarks != null ? String(remarks).trim() : undefined,
       trackingCode,
@@ -169,6 +173,7 @@ export async function POST(request: NextRequest) {
         vehicleNumber,
         appointmentDate,
         odometer: Number(odometer),
+        advisor: String(advisor).trim(),
         types,
         remarks,
         trackingCode,

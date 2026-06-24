@@ -355,6 +355,11 @@ export default function AdminServicesPage() {
                           <div className="font-mono text-[11px] text-black/60">
                             {item.contactNumber || "-"}
                           </div>
+                          {(item as any).advisor && (
+                            <div className="mt-1 text-[11px] font-semibold text-black/70">
+                              Advisor: {(item as any).advisor}
+                            </div>
+                          )}
                           {item.remarks && (
                             <div className="mt-0.5 max-w-[180px] truncate text-[11px] text-black/50" title={item.remarks}>
                               Remarks: {item.remarks}

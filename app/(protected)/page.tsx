@@ -27,6 +27,7 @@ export default function FeedbackPage() {
   // Service form states
   const [preferredDate, setPreferredDate] = useState("");
   const [odometer, setOdometer] = useState("");
+  const [serviceAdvisor, setServiceAdvisor] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [remarks, setRemarks] = useState("");
   const [serviceSubmitting, setServiceSubmitting] = useState(false);
@@ -176,7 +177,7 @@ export default function FeedbackPage() {
       setServiceMessage({ type: "error", text: "Contact number must be exactly 10 digits." });
       return;
     }
-    if (!preferredDate || !odometer || selectedTypes.length === 0) {
+    if (!preferredDate || !odometer || !serviceAdvisor || selectedTypes.length === 0) {
       setServiceMessage({ type: "error", text: "Please fill in all required fields." });
       return;
     }
@@ -193,6 +194,7 @@ export default function FeedbackPage() {
           vehicleNumber,
           appointmentDate: preferredDate,
           odometer: Number(odometer),
+          advisor: serviceAdvisor,
           types: selectedTypes,
           remarks,
         }),
@@ -212,6 +214,7 @@ export default function FeedbackPage() {
       setVehicleNumber(autofillValues.vehicleNumber);
       setPreferredDate("");
       setOdometer("");
+      setServiceAdvisor("");
       setSelectedTypes([]);
       setRemarks("");
       
@@ -593,6 +596,29 @@ export default function FeedbackPage() {
                     className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black placeholder:text-black/50 focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     required
                   />
+                </div>
+
+                <div>
+                  <label htmlFor="serviceAdvisor" className="block text-sm font-medium text-black">
+                    Advisor <span className="text-yellow-600 font-bold">*</span>
+                  </label>
+                  <select
+                    id="serviceAdvisor"
+                    value={serviceAdvisor}
+                    onChange={(e) => setServiceAdvisor(e.target.value)}
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    required
+                  >
+                    <option value="">Select advisor</option>
+                    <option value="Suhail (Service)">Suhail (Service)</option>
+                    <option value="Kiran (Service)">Kiran (Service)</option>
+                    <option value="Faizal (Service)">Faizal (Service)</option>
+                    <option value="Jyothika (Service)">Jyothika (Service)</option>
+                    <option value="Anjana (Service)">Anjana (Service)</option>
+                    <option value="Jinu (Body shop)">Jinu (Body shop)</option>
+                    <option value="Nithin (Body shop)">Nithin (Body shop)</option>
+                    <option value="Vineetha (Body shop)">Vineetha (Body shop)</option>
+                  </select>
                 </div>
 
                 <div>

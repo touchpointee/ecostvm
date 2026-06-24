@@ -519,6 +519,7 @@ export type ServiceExportRow = {
   vehicleNumber: string;
   appointmentDate: string;
   odometer: string;
+  advisor: string;
   types: string;
   remarks: string;
   whatsappSent: string;
@@ -535,6 +536,7 @@ export function createServicesWorkbook(rowsInput: ServiceExportRow[]): Buffer {
     "Vehicle Number",
     "Appointment Date",
     "Odometer (KMs)",
+    "Advisor",
     "Service Types",
     "Remarks/Concerns",
     "Group WA Sent",
@@ -552,6 +554,7 @@ export function createServicesWorkbook(rowsInput: ServiceExportRow[]): Buffer {
       row.vehicleNumber,
       row.appointmentDate,
       row.odometer,
+      row.advisor,
       row.types,
       row.remarks,
       row.whatsappSent,

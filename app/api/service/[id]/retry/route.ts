@@ -18,6 +18,7 @@ function formatMessage(
     vehicleNumber?: string;
     appointmentDate?: string;
     odometer?: number;
+    advisor?: string;
     types?: string[];
     remarks?: string;
     trackingCode?: string;
@@ -34,6 +35,7 @@ function formatMessage(
     details.vehicleNumber ? `Vehicle: ${details.vehicleNumber}` : undefined,
     details.appointmentDate ? `Preferred Date: ${details.appointmentDate}` : undefined,
     details.odometer != null ? `Odometer Reading: ${details.odometer} KMs` : undefined,
+    details.advisor ? `Advisor: ${details.advisor}` : undefined,
     details.types && details.types.length > 0 ? `Type of Service: ${details.types.join(", ")}` : undefined,
     details.remarks ? `Remarks/Concerns: ${details.remarks}` : undefined,
     "",
@@ -97,6 +99,7 @@ export async function POST(
       vehicleNumber: service.vehicleNumber,
       appointmentDate: service.appointmentDate,
       odometer: service.odometer,
+      advisor: service.advisor,
       types: service.types,
       remarks: service.remarks,
       trackingCode: service.trackingCode,

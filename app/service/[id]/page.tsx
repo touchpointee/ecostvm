@@ -54,6 +54,7 @@ export default async function ServiceDetailPage({
     { label: "Vehicle registration number", value: service.vehicleNumber ?? "-" },
     { label: "Preferred appointment date", value: service.appointmentDate ?? "-" },
     { label: "Odometer Reading", value: service.odometer != null ? `${service.odometer} KMs` : "-" },
+    { label: "Advisor", value: service.advisor ?? "-" },
     { label: "Types of service required", value: service.types ? service.types.join(", ") : "-" },
     {
       label: "Registered on",
