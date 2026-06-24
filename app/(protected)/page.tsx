@@ -380,26 +380,31 @@ export default function FeedbackPage() {
                 </div>
 
                 {/* Optional linked service booking dropdown */}
-                {pastServices.length > 0 && (
-                  <div>
-                    <label htmlFor="serviceId" className="block text-sm font-medium text-black">
-                      Select related service (optional)
-                    </label>
-                    <select
-                      id="serviceId"
-                      value={selectedServiceId}
-                      onChange={(e) => setSelectedServiceId(e.target.value)}
-                      className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    >
-                      <option value="">None / Select Service</option>
-                      {pastServices.map((srv) => (
-                        <option key={srv.id} value={srv.id}>
-                          {srv.appointmentDate} — {srv.vehicleNumber} ({srv.types.join(", ")})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div>
+                  <label htmlFor="serviceId" className="block text-sm font-medium text-black">
+                    Select related service (optional)
+                  </label>
+                  <select
+                    id="serviceId"
+                    value={selectedServiceId}
+                    onChange={(e) => setSelectedServiceId(e.target.value)}
+                    disabled={pastServices.length === 0}
+                    className="mt-1 block w-full rounded-lg border-2 border-black bg-white px-3 py-2.5 text-black focus:border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    {pastServices.length === 0 ? (
+                      <option value="">No registered service bookings found</option>
+                    ) : (
+                      <>
+                        <option value="">None / Select Service</option>
+                        {pastServices.map((srv) => (
+                          <option key={srv.id} value={srv.id}>
+                            {srv.appointmentDate} — {srv.vehicleNumber} ({srv.types.join(", ")})
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
