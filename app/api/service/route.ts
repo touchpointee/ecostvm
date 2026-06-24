@@ -26,9 +26,12 @@ function formatGroupMessage(
     odometer?: number;
     types?: string[];
     remarks?: string;
+    trackingCode?: string;
   }
 ): string {
-  const url = `${PUBLIC_SERVICE_BASE}/${serviceId}`;
+  const url = details.trackingCode
+    ? `${PUBLIC_SERVICE_BASE}/${serviceId}?token=${details.trackingCode}`
+    : `${PUBLIC_SERVICE_BASE}/${serviceId}`;
   const lines = [
     HEADER,
     "",
@@ -168,6 +171,7 @@ export async function POST(request: NextRequest) {
         odometer: Number(odometer),
         types,
         remarks,
+        trackingCode,
       });
       try {
         await connect();

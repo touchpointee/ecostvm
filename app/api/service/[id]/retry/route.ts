@@ -20,9 +20,12 @@ function formatMessage(
     odometer?: number;
     types?: string[];
     remarks?: string;
+    trackingCode?: string;
   }
 ): string {
-  const url = `${PUBLIC_SERVICE_BASE}/${serviceId}`;
+  const url = details.trackingCode
+    ? `${PUBLIC_SERVICE_BASE}/${serviceId}?token=${details.trackingCode}`
+    : `${PUBLIC_SERVICE_BASE}/${serviceId}`;
   const lines = [
     HEADER,
     "",
@@ -96,6 +99,7 @@ export async function POST(
       odometer: service.odometer,
       types: service.types,
       remarks: service.remarks,
+      trackingCode: service.trackingCode,
     });
     let whatsappSent = false;
     let whatsappError: string | null = null;
